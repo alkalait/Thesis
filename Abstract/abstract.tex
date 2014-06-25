@@ -1,0 +1,32 @@
+
+% Thesis Abstract -----------------------------------------------------
+
+
+%\begin{abstractslong}    %uncommenting this line, gives a different abstract heading
+\begin{abstracts}        %this creates the heading for the abstract page
+
+%{\color{red} Write me last ...}
+
+  We study structured covariance matrices in a Gaussian setting for a variety of data analysis scenarios.
+  Despite its simplistic nature, we argue for the broad applicability of the Gaussian family through its second order statistics.
+  We focus on three types of common structures in the machine learning literature: covariance \emph{functions}, \emph{low-rank} and \emph{sparse inverses} covariances.
+  Our contributions boil down to combining these structures and designing algorithms for maximum-likelihood or MAP fitting: for instance, we use covariance functions in Gaussian processes to encode the temporal structure in a gene-expression time-series, with any residual structure generating iid noise.
+  More generally, for a low-rank residual structure (correlated residuals) we introduce the \emph{residual component analysis } framework: based on a generalised eigenvalue problem, it decomposes the residual low-rank term given a partial explanation of the covariance.
+  In this example the explained covariance would be an RBF kernel, but it can be any positive-definite matrix.
+  Another example is the \emph{low-rank plus sparse-inverse} composition for structure learning of GMRFs in the presence of confounding latent variables.
+  We also study RCA as a novel link between classical low-rank methods and modern probabilistic counterparts: the geometry of oblique projections shows how PCA, CCA and \emph{linear discriminant analysis} reduce to RCA.
+  Also inter-battery factor analysis, a precursor of multi-view learning, is reduced to an iterative application of RCA.
+  Finally, we touch on structured precisions of matrix-normal models based on the Cartesian factorisation of graphs, with appealing properties for regression problems and interpretability.
+  In all cases, experimental results and simulations demonstrate the performance of the different methods proposed.
+
+\end{abstracts}
+%\end{abstractlongs}
+
+
+% ----------------------------------------------------------------------
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
