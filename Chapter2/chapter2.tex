@@ -1,0 +1,1108 @@
+% \pagebreak[4]
+% \hspace*{1cm}
+% \pagebreak[4]
+% \hspace*{1cm}
+% \pagebreak[4]
+
+\chapter[Temporal covariance structures for ranking differential expression]{Temporal covariance structures for ranking differential expression} \label{chap2:GP}
+
+\ifpdf
+    \graphicspath{{Chapter2/Chapter2Figs/PNG/}{Chapter2/Chapter2Figs/PDF/}{Chapter2/Chapter2Figs/}}
+\else
+    \graphicspath{{Chapter2/Chapter2Figs/EPS/}{Chapter2/Chapter2Figs/}}
+\fi
+
+
+%   \section*{Case study abstract}
+
+    % \paragraph*{Background:}  %Background, the context and purpose of the study;
+
+    The analysis of gene expression from time series underpins many biological studies.
+    Two basic forms of analysis recur for data of this type: removing inactive (quiet) genes from the study and determining which genes are differentially expressed.
+    Here, the problem is one of ranking genes based on the differential expression of their time-series (or microarray) data.   
+    Often these analysis stages are applied disregarding the fact that the data is drawn from a time series.
+    In this chapter we propose a temporal covariance structure to account for the underlying temporal nature of the data based on a Gaussian process (GP) \citep{Kalaitzis:simple11}.
+
+
+    \paragraph{Results} %Results, the main findings;
+      We review GP regression, for estimating the continuous trajectories underlying the gene expression time-series, in section \ref{sec:chap2_method}.
+      We present a simple approach which can be used to filter quiet genes, or for the case of time series in the form of expression ratios, quantify differential expression.
+      We assess the rankings produced by our regression framework through ROC curves and compare them to a recently proposed hierarchical Bayesian model (BATS) in section \ref{sec:chap2_results}.
+      We compare on both simulated and experimental data showing that the proposed approach considerably outperforms the current state of the art.
+
+    \paragraph{Conclusions} % Conclusions, brief summary and potential implications.
+      We argue in section \ref{sec:chap2_conclusions} that GPs offer an attractive trade-off between efficiency and usability for the analysis of microarray time series.
+      The GP framework offers a natural way of handling biological replicates and missing values and provides confidence intervals along the estimated curves of gene expression.
+      Therefore, we believe that GPs should be a standard tool in the analysis of gene expression time series.
+
+
+  \section{Background} \label{sec:chap2_background}
+    Gene expression profiles give a snapshot of mRNA concentration levels as encoded
+    by the genes of an organism under given experimental conditions. Early studies
+    of this data often focused on a single point in time which biologists assumed to
+    be critical along the gene regulation process after the perturbation. However,
+    the \textit{static} nature of such experiments severely restricts the inferences
+    that can be made about the underlying dynamical system. 
+
+    With the decreasing cost of gene expression microarrays time series experiments
+    have become commonplace giving a far broader picture of the gene regulation
+    process. Such time series are often irregularly sampled and may involve
+    differing numbers of replicates at each time point
+    \citep{lonnstedt2002replicated}. The experimental conditions under which gene
+    expression measurements are taken cannot be perfectly controlled leading the
+    signals of interest to be corrupted by noise, either of biological origin or
+    arising through the measurement process.
+
+    Primary analysis of gene expression profiles is often dominated by methods
+    targeted at \textit{static} experiments, i.e. gene expression measured on a
+    single timepoint, that treat time as an additional experimental factor
+    \citep{spellman1998comprehensive, friedman2000using, dudoit2002statistical,
+    kerr2000analysis, efron2001empirical,lonnstedt2002replicated}. However, where
+    possible, it would seem sensible to consider methods that can account for the
+    special nature of time course data. Such methods can take advantage of the
+    particular statistical constraints that are imposed on data that is naturally
+    ordered \citep{bar2003comparing, ernst2005clustering, storey2005significance,
+    tai2006multivariate, angelini2007bayesian, angelini2008bats}.
+
+    The analysis of gene expression microarray time-series has been a stepping
+    stone to important problems in systems biology such as the genome-wide
+    identification of direct targets of transcription factors \citep{della2008direct,
+    honkela2010model} and the full reconstruction of gene regulatory networks
+    \citep{bansal2006inference, finkenstadt2008reconstruction}. A more comprehensive
+    review on the motivations and methods of analysis of time-course gene expression
+    data can be found in \citep{bar2004analyzing}.
+
+
+  \subsection{Testing for expression}
+    A primary stage of analysis is to characterize the activity of each gene in an
+    experiment. Removing inactive or \textit{quiet} genes (genes which show
+    negligible changes in mRNA concentration levels in response to
+    treatments/perturbations) allows the focus to dwell on genes that have responded
+    to treatment. We can consider two experimental set ups. Firstly, we may be
+    attempting to measure the absolute level of gene expression (for example using
+    Affymetrix GeneChip microarrays). In this case a quiet gene would be one whose
+    expression level is indistinguishable from noise. Alternatively, we might be may
+    be hybridizing two samples to the same array and quantifying the ratio of the
+    expression levels. Here a quiet gene would be one which is showing a similar
+    response in both hybridized samples. In either case we consider such expression
+    profiles will consist principally of \textit{noise}. Removing such genes will
+    often have benign effects later in the processing pipeline. However, mistaken removal
+    of profiles can clearly compromise any further downstream analysis. If the
+    temporal nature of the data is ignored, our ability to detect such phenomena can
+    be severely compromised. An example can be seen in Figure \ref{fig:profile},
+    where the temporal information is removed from an experimental profile by
+    randomly reordering its expression samples. Disregarding the temporal
+    correlation between measurements, hinders our ability to assess the profile due
+    to critical inherent traits of the signal being lost such as the speed and scale
+    of variation.
+
+    Failure to capture the signal in a profile, irrespective of the amount of
+    embedded noise, may be partially due to \textit{temporal aggregation}
+    effects, meaning that the coarse sampling of gene expression or the sampling
+    rates do not match the natural rates of change in mRNA concentrations
+    \citep{bay2004temporal}. For these reasons, the classification
+    scheme of differential expression in this paper is focused on reaching a high
+    \textit{true positive rate} (TPR, \textit{sensitivity} or \textit{recall}) and
+    is to serve as a pre-processing tool prior to more involved analysis of
+    time-course microarray data. % \emph{Needs a bit of work:
+    In this work we distinguish between \textit{two-sample} testing and experiments
+    where \textit{control} and \textit{treated} cases are directly-hybridized on the
+    microarray (For brevity, we shall refer to experiments with such setups
+    as \textit{one-sample testing}). The \textit{two-sample} setup is a common
+    experimental setup in which two groups of sample replicates are used
+    \citep{della2008direct, stegle2010robust}; one being under the treatment effect
+    of interest and the other being the control group, so to recover the most active
+    genes under a treatment one may be interested in testing for the statistical
+    significance of a treated profile being differentially expressed with respect to
+    its control counterpart. Other studies use data from a \textit{one-sample} setup
+    \citep{angelini2007bayesian, angelini2008bats}, in which the \textit{control} and
+    \textit{treated} cases are directly hybridized on a microarray and the
+    measurements are normalized log fold-changes between the two output channels of
+    the microarray \citep{schena1995quantitative}, so the analogous goal is to test
+    for the statistical significance of having a non-zero signal.
+
+    A recent significant contribution in estimating and ranking the differential
+    expression of time-series in a \textit{one-sample} setup is the
+    hierarchical Bayesian model for the analysis of gene expression time-series
+    (BATS) \citep{angelini2007bayesian, angelini2008bats}. The framework offers fast
+    computations through exact computations of Bayesian inference, to the cost of making a
+    considerable number of biological assumptions, see section \ref{subsec:chap2_simdata}.
+
+    \begin{figure}[!htbp]
+      \begin{center}
+	\leavevmode
+	\label{fig:profile_combined}
+	\subfigure[]{
+	  \includegraphics[width=.47\linewidth]{Profile_Gene943_DGatta_p63}
+	  \label{fig:profile_a}
+	}
+	\subfigure[]{
+	  \includegraphics[width=.47\linewidth] {Profile_Gene943_DGatta_p63_randomised}
+	  \label{fig:profile_b}
+	}
+	\caption[Disregarding temporal information in a gene expression profile.] {
+	  Temporal information removed from the profile of gene Cyp1b1 in the experimental mouse data.
+	  \textbf{\subref{fig:profile_a}} The centred profile of the gene \textit{Cyp1b1} (probeID
+	  1416612\_at in the \textit{GSE10562} dataset). The blue crosses
+	  represent zero-mean hybridised gene expression in time of measurement
+	  (log2 ratios between treatment and control).
+	  \textbf{\subref{fig:profile_b}} The same profile with its timepoints randomly shuffled.
+	}
+	\label{fig:profile}
+      \end{center}
+    \end{figure}
+
+  \subsection{Gene expression analysis with Gaussian processes}
+    \textit{Gaussian processes} (GP) \citep{Rasmussen:book06, MacKay:book03} offer an easy to implement approach for quantifying the true signal and noise embedded in a gene expression time-series, and thus allow us to rank the differential expression of the gene profile.
+    We initially motivated GPs as Gaussians with a particular (temporal) type of covariance structure over the expression time-points.
+    More generally in the context of the Gaussian family of distributions, a Gaussian process is the natural generalisation of a multivariate Gaussian distribution to a Gaussian distribution over a space of a \textit{specific family of functions} --- a family defined by a \textit{covariance function} or \textit{kernel}, that is, a similarity metric between datapoints.
+    Roughly speaking, viewing a function as an infinite-dimensional vector, allows one to represent that function as a point in an infinite-dimensional \textit{space of a specific class of functions}, and a Gaussian process as an infinite-dimensional Gaussian distribution over that space.
+
+    In the context of expression trajectory estimation, a Gaussian process coupled
+    with the \textit{squared-exponential} covariance function (or \textit{radial
+    basis function}, RBF) --- a standard covariance function used in regression
+    tasks --- makes the reasonable assumption that the underlying true signal in a
+    profile is a \textit{smooth} function \citep{yuan2006flexible}, that is,
+    an infinitely differentiable function. This property endows the GP with great
+    flexibility in capturing the underlying signals, without imposing
+    strong modeling assumptions (as in, a finite number of basis functions in BATS) but may
+    also erroneously pick up spurious patterns (false positives) should the time-course
+    profiles suffer from temporal aggregation effects. From a generative viewpoint, the
+    profiles are assumed to be corrupted with additive independent spherical (iid) Gaussian noise.
+    This property makes the GP an attractive tool for bootstrapping simulated
+    biological replicates \citep{kirk2009gaussian}.
+
+    In a different context, Gaussian process priors have been used for modeling
+    transcriptional regulation. For example, \citet{Lawrence:modelling07}, while
+    using the time-course expression of a-priori known direct targets (genes) of a
+    transcription-factor, the authors went one step further and inferred the
+    concentration rates of the transcription-factor protein itself and
+    \citet{gao2008gaussian} extended the same model for the case of regulatory
+    repression.
+
+    The ever-lingering issue of outliers in time series is still critical, but is
+    not addressed here as there is significant literature on this issue, in the
+    context of GP regression, complementary to this work. For instance,
+    \citet{stegle2010robust, StegleDWMMGB09} proposed a probabilistic model using
+    Gaussian processes with a robust noise model specialised for two-sample testing
+    to detect \textit{intervals} of differential expression, whereas the present
+    work optionally focuses on \textit{one-sample} testing, to rank the differential
+    expression and ultimately detect \textit{quiet/active} genes. Other examples
+    can also be easily applied; \citet{Tipping:variational05} used a
+    Student-\textit{t} distribution as the robust noise model in the regression
+    framework along with variational approximations to make the inference
+    mechanism tractable, and \citet{Vanhatalo:gaussian09} used a
+    Student-\textit{t} observation model with Laplace approximations for inference.
+
+    In this case study, the standard GP regression framework is straightforward to use, with a
+    minimal need for manual tweaking of a few hyper-parameters.
+    Section \ref{sec:chap2_method} describes the GP regression framework in detail.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% Methodology
+
+  \section{Methodology} \label{sec:chap2_method}
+    The modeling of time-course microarray data with GPs is not a new idea
+    (see section \ref{sec:chap2_background}, \textbf{Background}).
+    In this section we review the methodology for estimating the continuous trajectory
+    of a gene expression through GP regression. This is followed by a
+    likelihood-ratio approach to ranking the differential expression of a gene, in section \ref{subsec:chap2_covfunc}.
+    The following section contains some key GP theory, borrowing from chapters
+    45 and 2 in \citep[respectively]{Rasmussen:book06, MacKay:book03}.
+
+    \subsection{The Gaussian process model} \label{subsec:chap2_GPmodel}
+      The main idea is to treat trajectory estimation, given some noisy output observations
+      (gene expression), as an interpolation problem on functions of one (time) dimension.
+      By assuming that the observations are jointly Gaussian-distributed with Gaussian iid noise, the
+      computations for prediction become tractable and involve only the manipulation
+      of linear algebra rules.
+
+      \subsubsection{A finite parametric model}
+	We gradually introduce the GP regression model, starting from a linear regression
+	model with inputs $\mb{x} \in \Realspace^p$ mapped to some feature space defined by $\bphi = \phi(\mb{x})$:
+	% Solving this system involves using the backslash operator,
+	% $\mathbf{w}=\pmb{\Phi} \backslash \mathbf{y}$.}
+	\begin{equation} \label{equ:chap2_LRmodel}
+	  f(\mb{x}) = \bphi^\top \mb{w}, \qquad y = f(\mb{x}) + \epsilon ~.
+	\end{equation}
+	For example, $\phi(x) = (1,\,x,\,x^2 \,)^\top$ maps a line to a quadratic curve.
+	In our case, gene expression is measured at timepoints $\{x_{i}\}_{1..n}$,
+	to form a profile of observations $\{y_i\}_{1..n}$. The input and output dimensionalities are one.
+	The (time) inputs are mapped to features $\{ \bphi(x_i) \}_{1..n}$.
+	We assume that the observations are contaminated with Gaussian iid noise of
+	zero mean and variance $\sigma^2$:
+	\begin{equation} \label{equ:chap2_noise} 
+	  \epsilon \sim \Normal{0}{\sigma^2}.
+	\end{equation}
+	Then the likelihood of the observations $\mb{y}=\{y_i\}_{1..n}$, given
+	inputs\footnote{Normally, we use the notation $\mb{x}$ to denote a single datapoint of dimension $p$.
+	In this section, we diverge temporarily from this notation to denote a \textit{collection} of inputs.}
+	$\mb{x}=\{x_i\}_{1..n}$ and parameters $\mb{w}$, is Gaussian:
+	\begin{equation*} \label{equ:chap2_data_likelihood}
+	  \begin{split}
+	    p(\mb{y}\,|\,\mb{x},\mb{w}) &=
+	    \prod^n_{i=1} (2\pi\sigma^2)^{-1/2} \exp\left\{-\frac{(y_i - \bphi^\top_i \mb{w})^2}{2\sigma^2}\right\} \\
+	    &= (2\pi\sigma^2)^{-n/2} \exp\left\{-\frac{1}{2\sigma^2}(\mathbf{y} - \bPhi \mb{w})^\top(\mb{y} -\bPhi \mb{w}) \right\} \\
+	    &= \mathcal{N}(\mb{y} \,|\, \bPhi \, \mb{w}, \sigma^2 \mb{I}) ~.
+	  \end{split}
+	\end{equation*}
+	Here, we assume that the observations are conditionally independent given the inputs, that is, the likelihood
+	factorises across the $y_i$.
+
+      \subsubsection{Bayesian linear regression}
+	Now we wish to include some prior belief about the parameters $\mb{w}$, by specifying a zero mean
+	spherical Gaussian as a \textit{prior} distribution over the parameters:
+	\begin{equation*} \label{equ:chap2_param_prior}
+	  \mb{w} \sim \Normal{0}{\sigma^2_w}.
+	\end{equation*}
+	Now we can integrate out the parameters from the joint distribution
+	$p(\mb{y},\mb{w} \,|\, \mb{x})$ to get the \textit{marginal} likelihood
+	\begin{equation} \label{equ:chap2_marginal}
+	  p( \mb{y} \,|\, \mb{x} ) = \int \textrm{d}\mb{w} ~ p( \mb{y} \,|\, \mb{x}, \mb{w} ) p(\mb{w}) ~.
+	\end{equation}
+	The marginal is also Gaussian with mean and covariance
+	\begin{equation} \label{equ:chap2_marg_mean}
+	  \E{\mb{y} \,|\, \mb{x}} \quad=\quad \bPhi \E{\mb{w}} + \E{\bepsilon} \quad=\quad \mb{0}
+	\end{equation}
+	\begin{align} \label{equ:chap2_marg_cov}
+	  \begin{split}
+	    \V{\mb{y} \,|\, \mb{x}} \quad&=\quad \bPhi ~\V{\mb{w}} \bPhi^\top + \V{\epsilon} \\
+	    &=\quad \sigma^2_w \bPhi \bPhi^\top + \sigma^2 \mb{I} \\
+	    &\triangleq\quad \mb{K}_f + \sigma^2 \mb{I} \quad\triangleq\quad \mb{K}_y
+	  \end{split}
+	\end{align}
+	\begin{align} \label{equ:chap2_marginal2}
+	  \begin{split}
+	    p(\mb{y} \,|\, \mb{x}) \quad &= \quad \mathcal{N}(\mb{y} \,|\, \mb{0}, \mb{K}_y) \\
+	    &=\quad (2\pi)^{-n/2} \verts{\mb{K}_y}^{-1/2} \exp\left\{-\frac{1}{2} \mb{y}^\top \mb{K}^{-1}_y \mb{y} \right\},
+	  \end{split}
+	\end{align}
+	where $\mb{K}_y$ is defined as the covariance from eq.~\eqref{equ:chap2_marg_cov}
+	and $\mb{K}_f$ as the noiseless signal covariance.
+	
+	\paragraph{Why Bayesian?} Recall that the structure of the covariance in eq.~\eqref{equ:chap2_marg_cov} relies
+	on the choice of mapping $\phi$. This can be a mapping to variable-order
+	polynomials, by adjusting the polynomial degree \textit{hyperparameter}, or a RBF
+	(radial basis function) with a variable \textit{lengthscale}. While these different classes of
+	features give different classes of models, within one class we can \textit{compare} or rank different models
+	(different choices of hyperparameters) through the marginal likelihood in eq.~\eqref{equ:chap2_marginal2}.
+	% 	we can \textit{compare} or rank different models, with no fear of
+	This is made possible by the marginalisation in eq.~\eqref{equ:chap2_marginal},
+	which is a weighted average over the parameters $\mb{w}$, and the Gaussianity assumptions of the data
+	likelihood and prior give the integral a closed form solution.
+	At the same time, the Bayesian approach reduces \textit{overfitting} on the data, without
+	having to apply explicitly a \textit{regulariser} to the data fit term. In fact,
+	the marginal likelihood implicitly penalises overly complex models (e.g. high degree polynomials)
+	as the prior assumes a lower probability density for such values of $\mb{w}$,
+	see sections 2.8 and 5.4 in \citep[respectively]{Rasmussen:book06, MacKay:book03}.
+
+	For $\mathbf{K}_y$ to be a valid covariance matrix of the GP, it must satisfy the following conditions:
+	\begin{itemize}
+	  \item \textbf{Kolmogorov consistency}: satisfied when
+	  $K_{ij} = k(x_i, x_j)$ for some \textit{covariance function}
+	  $k:\Realspace \times \Realspace \rightarrow \Realspace$, such
+	  that $\mb{K}$ is positive semidefinite --- that is,
+	  $\mb{y}^\top\mb{K}\mb{y}\geq 0$ for any $\mb{y}$ or, equivalently, the eigenvalues of $\mb{K}$ are non-negative.
+	  \item \textbf{Exchangeability}: satisfied when the data are iid.
+	  This implies that the order in which the data become available has no impact on
+	  the marginal distribution.
+	  % 	  hence there is no need to hold out data from the training set for \textit{validation} purposes (for measuring
+	  % 	  generalisation errors, etc.).
+	\end{itemize}
+
+      \subsubsection{Definition of the Gaussian process} \label{subsubsec:chap2_GPdef}
+	More formally, \textit{ a Gaussian process is a collection of random variables
+	(a stochastic process), such that the joint distribution over any finite subset,
+	\begin{equation*}
+	  p \left( y_1, y_2,...\,, y_n \right),
+	\end{equation*}
+	is Gaussian and its covariance satisfies the Kolmogorov consistency.}
+
+	If we remove the noise term $\sigma^2 \mb{I}$ from $\mb{K}_y$ in eq.
+	(\ref{equ:chap2_marg_cov}), we get noiseless predictions of $f(x)$ rather than
+	$y(x)$, see eq.~\eqref{equ:chap2_LRmodel}. However, when dealing with finite
+	parameter spaces, $\mb{K}_f$ may be \textit{ill-conditioned} (determinant close to zero), so the
+	constant diagonal noise term increases the eigenvalues just enough to
+	make $\mathbf{K}_y$ invertible.
+
+	Now we can view the GP as a Gaussian prior distribution over
+	the function values $\mb{f}$ for inputs $\mb{x}$, by rewriting eq. \eqref{equ:chap2_marginal2}:
+	\begin{equation} \label{equ:chap2_GPprior}
+	  p(\mb{f} \,|\, \mb{x}) = (2\pi)^{-n/2}\verts{\mb{K}_f}^{-1/2}
+	  \left\{-\frac{1}{2} (\mb{f}-\mb{m})^\top \mb{K}^{-1}_f (\mb{f}-\mb{m}) \right\} ~.
+	\end{equation}
+	But more generally, it turns out that the GP can be safely defined as a
+	prior distribution over functions $f$: %, in some infinite-dimensional Hilbert space:
+	\begin{align}
+	   \nonumber f(x) &\sim \mathcal{GP} \left(m(x), ~ k(x, x') \right) \\
+	  m(x) &= \E{f(x)} \\  \label{equ:GPcovfunc}
+	  k(x, x') &= \E{(f(x)-m(x))(f(x')-m(x'))}~,
+	\end{align}
+	where $m$ is the \textit{mean function} (usually defined as the zero function) and
+	$k$ is the \textit{covariance function} satisfying the Kolmogorov consistency.
+	Fortunately, in practice, we only have to handle a finite number of dimensions of the GP (eq.~\ref{equ:chap2_GPprior}),
+	as we can only access a finite collection of inputs $\mb{x}$.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \subsection{The squared-exponential kernel} \label{subsec:chap2_covfunc}
+      In this case study we use the univariate version of the SE (squared-exponential) or RBF
+      kernel. Before embarking on its analysis, the reader should be aware
+      of the existing wide variety of kernel families, and combinations of them.
+      A comprehensive review of covariance functions can be found in \citep[chapter 4]{Rasmussen:book06}.
+
+      \subsubsection{Derivation} % of the SE kernel}
+	In section \ref{subsubsec:chap2_GPdef} we mentioned the possibility of an
+	ill-conditioned covariance matrix, in the case of a finite parametric
+	model. We can see this from eq.~\eqref{equ:chap2_marg_cov}, where $\mb{K}_f$ can have at most as many
+	non-zero eigenvalues as the number of parameters in the model. Hence for any
+	problem of any given size, the matrix is positive semidefinite. Ensuring that
+	$\mathbf{K}_f$ is positive \textit{definite}, involves adding the diagonal noise term
+	to the covariance.
+
+	On the other hand, it can be shown that with a particular feature space (with an infinite number of RBFs),
+	when the features are integrated out then the covariance between the
+	datapoints is expressed by a covariance function instead of the features.
+	To show this,
+	% 	we follow \citep[sec.45.3]{mackay2003information} and \citep[sec.4.2.1]{Rasmussen:book06}.
+	first we consider a feature defined by the RBF $\phi_{x_c}$ centred at point
+	$x_c$, such that $\bphi_{x_c} = (\phi_{x_c}(x_1),..., \phi_{x_c}(x_n))^\top$ for $c \in \{1,...,n\}$, so
+	$\bPhi = (\bphi_{x_1},...,\bphi_{x_n})$.
+	We express the covariance matrix $\mb{K}_f$ in terms of a decomposition of outer-products:
+	\begin{align*}
+	  \mb{K}_f =  \sigma^2_w \bPhi \bPhi^\top = \sigma^2_w \sum_c \bphi_{x_c} \bphi_{x_c}^\top ~,
+	\end{align*}
+	which is equivalent to
+	\begin{align} \label{equ:chap2_covfunc}
+	  K_{f,ij} =  k(x_i, x_j) = \sigma^2_w \sum_c \phi_{x_c}(x_i) \phi_{x_c}(x_j) ~.
+	\end{align}
+
+	Here, the number of features (complexity) $k$ is equal to the number of datapoints $n$. With an infinite
+	number of centers (features) on the real line, the limit converges \citep{Mackay:introGP98}:
+	% 	then by considering a feature space defined by \textit{radial basis functions}
+	% 	and integrating with respect to their centers\ $h$, eq.~\eqref{equ:chap2_covfunc} becomes
+	\begin{equation} \label{equ:chap2_covfunc2}
+	  \begin{split}
+	    k(x_i, x_j) &= \lim_{k \rightarrow \infty} \frac{\sigma^2_w}{k} \sum_{c=1}^{k} \phi_{x_c}(x_i) \phi_{x_c}(x_j) \\
+	    &= \sigma^2_w \int_{-\infty}^{\infty} \textrm{d}x_c ~ \phi_{x_c}(x_i) \phi_{x_c}(x_j) \\
+	    &= \sigma^2_w \int_{-\infty}^{\infty} \textrm{d}x_c ~ \exp \left\{ -\frac{(x_i-x_c)^2}{2r^2} \right\}
+	      \exp \left\{-\frac{(x_j - x_c)^2}{2r^2} \right\} \\
+	    &= \sqrt{\pi r^2} ~ \sigma^2_w \exp \left\{ -\frac{(x_i \,-\, x_j)^2}{4r^2} \right\} \\
+	    &= \sigma^2_f \exp \left\{ -\frac{(x_i \,-\, x_j)^2}{2 \ell^2} \right\} ~.%= \sigma^2_f \phi_{x_i}(x_j) = \sigma^2_f \phi_{x_j}(x_i) ~.
+	  \end{split}
+	\end{equation}
+
+      \subsubsection{Analysis}
+	It turns out that by integrating out the feature centers, we end up with
+	another scaled RBF function with either input as its center, that is, $k_{x_i}(x_j) = k_{x_j}(x_i) = k(x_i,x_j)$.
+	This \textit{covariance function or kernel} satisfies the Kolmogorov consistency and is known as the SE or RBF kernel.
+	The factor $\sigma^2_f \triangleq \sqrt{\pi r^2}~\sigma^2_w$ acts as a \textit{signal variance}
+	and $\ell^2 \triangleq 2r^2$ as the \textit{lengthscale} of this standard form of the
+	univariate SE covariance function. In practice, we use the noisy version:
+	\begin{equation} \label{equ:chap2_SEcovfunc}
+	  K_{y,ij} = \sigma^2_f \exp \left\{-\frac{(x_i - x_j)^2}{2 \ell^2} \right\} + \sigma^2 \delta_{ij} ~,
+	\end{equation}
+	where $\delta_{ij}$ is the Kronecker delta function which is one for $i=j$ and zero otherwise.
+
+	\paragraph{RKHS kernel} As a side note, the RBF feature $k_x$ is a member
+	of a \textit{reproducing kernel Hilbert space} (RKHS).
+	A Hilbert space $\mathcal{H}$ is a space with an inner product
+	$\inner{.}{.}_{\mathcal{H}}$ and it is
+	\textit{complete}\footnote{The space must contain the limits of all
+	Cauchy\footnotemark{} sequences of elements in $\mathcal{H}$.}
+	\footnotetext{A sequence $x_1,x_2,... \in \mathcal{H}$ is Cauchy if for an arbitrarily small $\epsilon>0$,
+	the distance $d(x_i,x_j)$ (as induced by the norm) always gets
+	smaller than $\epsilon$ for some $i$ onwards in the sequence.}
+	with respect to the norm induced by this inner product\footnote{In our case, we have a space of real
+	functions $f:\Realspace \rightarrow \Realspace$ with norm $\norm{f}_\mathcal{H}^2 = \inner{f}{f}_\mathcal{H}$.}.
+	It is an RKHS, if there is some function $k: \Realspace \times \Realspace \rightarrow \Realspace$ such that:
+	\begin{itemize}
+	  \item For all $x \in \Realspace$, $k(x,x')$ as a function of $x'$ is a member of $\mathcal{H}$.
+	  \item For all $x \in \Realspace, ~ k_x$ is the evaluation representer; that is, for any $f \in \mathcal{H}$,
+	    $\inner{f}{k_x}_\mathcal{H} = f(x)$. In this case we say that $k$ is a \textit{reproducing kernel}.
+	\end{itemize}
+	For more details on the properties of RKHS spaces, see
+	\citep{Scholkopf:book02, Rasmussen:book06, Wegman:reproducing88, Berlinet:reproducing04}.
+
+	\paragraph{Kernel trick} Since $k_{x_i}(.) = k(x_i,.)$ and $k_{x_j}(.) = k(x_j,.)$ are members of
+	$\mathcal{H}$ then according to the second property of the RKHS $\mathcal{H}$,
+	\begin{equation*}
+	  \inner{k(x_i,.)}{k(x_j,.)}_{\mathcal{H}} = k(x_i,x_j) ~.
+	\end{equation*}
+	Therefore, the solution of the integral in eq.~\eqref{equ:chap2_covfunc2} relies on it being a particular 
+	case of an inner product between two reproducing members of
+	$\mathcal{H}$ and is as simple as a function evaluation of $k$.
+
+	\paragraph{SE hyperparameters} The SE is a stationary kernel, i.e. it is a function of distance
+	$d = x_i - x_j$ which makes it \textit{translation invariant} (in time).
+	It is governed by the characteristic lengthscale $\ell^2$ which, roughly speaking, specifies the distance at which
+	the outputs for any two inputs ($x_i,x_j$) become uncorrelated. In other words, the lengthscale
+	$\ell^2$ controls the amount by which $f$ varies along the input domain (time): A small
+	lengthscale makes $f$ vary rapidly along time, and a very large
+	lengthscale makes $f$ behaves almost like a constant function, see Figure \ref{fig:GPfit}.
+	This parameterisation of the SE kernel is very powerful
+	when combined  with hyperparameter \textit{adaptation}, as described in section \ref{subsec:chap2_hyperadaptation}.
+	Other adaptable hyperparameters include the signal
+	variance $\sigma^2_f$ which is the vertical scale of function variation
+	and the noise variance $\sigma^2$, see eq.~\eqref{equ:chap2_noise}.
+	The noise variance is not a hyperparameter of the SE itself, but of its noisy variant.
+	Unless we set it as a constant, its adaptation can give \textit{different explanations}
+	about the latent function that generates the data.
+
+	\paragraph{Kernel composites} One can also combine covariance functions, as long as they are
+	positive-definite. In fact, eq.~\eqref{equ:chap2_SEcovfunc} is a sum
+	of the SE kernel and the covariance function of isotropic Gaussian noise.
+	Examples of valid combinations of covariance functions include \textit{linear
+	combinations} and \textit{products} of covariance functions. \textit{Direct sums} and \textit{tensor
+	products} of covariance functions defined over different spaces are also valid covariance functions.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \subsection{Gaussian process regression} \label{subsec:chap2_GPprediction}
+      To reconstruct the true trajectory of gene expression at the sampled inputs (timepoints)
+      as well as predict the trajectory at unsampled inputs we must
+      infer the true function values $f(\mb{x})$, as well as $f(x_*)$ for all new inputs $x_*$,
+      given some observed outputs $\mb{y}$ at sampled inputs
+      $\mb{x}$\footnote{Where possible, we do not denote the conditioning on inputs to avoid cluttering.}.
+
+      Under the GP model in eq.~\eqref{equ:chap2_GPprior}, we know that the
+      joint distribution over any (latent) function values $\mb{f} = f(\mb{x})$ is the \textit{GP prior}.
+      Without loss of generality, $\mb{f}$ can be concatenated with a single new function
+      value $f_*$ for some unsampled input $x_*$,
+      \begin{equation*}
+	\mat{ \mb{f}_{~} \\ f_* } \sim \Normal{ \mb{0} }{ \mat{ \mb{K}_f &\mb{k}_{f_*} \\ \mb{k}_{f_*}^\top &k_* } } ~,
+      \end{equation*}
+      where $\mb{K}_f$ is the RBF covariance matrix across the outputs of sampled timepoints $\mb{x}$,
+      $(\mb{k}_{f_*})_i = k(x_i, x_*)$ is the covariance between the new $f_*$
+      and old function values $\mb{f}$ and $k_* = k(x_*,x_*)$ is the variance of $f_*$.
+
+      \paragraph{Noisy outputs} As with any practical application, in this
+      section we consider predictions using noisy observations $\mb{y}$,
+      whereas the true function values $\mb{f}$ are unknown.
+      Since the noise is spherical Gaussian by assumption, then
+      \begin{equation} \label{equ:chap2_noisy_cov}
+	\textrm{cov}\mat{ \mb{y} \\ f_*} =  \textrm{cov}\mat{ \mb{f}_{~} + \bepsilon \\ f_* + 0} = \textrm{cov} \mat{ \mb{f} \\ f_*} + \textrm{cov}\mat{ \bepsilon \\ 0}
+	= \mat{ \mb{K}_f + \sigma^2 \mb{I} &\mb{k}_{f_*} \\ \mb{k}_{f_*}^\top &k_* } ~,
+      \end{equation}
+      so
+      \begin{equation} \label{equ:chap2_noisy_marginal}
+	\mat{ \mb{f}_{~} \\ f_* } \sim \Normal{ \mb{0} }{ \mat{ \mb{K}_f &\mb{k}_{f_*} \\ \mb{k}_{f_*}^\top &k_* } } ~,
+      \end{equation}
+      $(\mb{y}^\top ~  f_* )$ is Gaussian-distributed with zero mean and
+      the covariance in eq.~\eqref{equ:chap2_noisy_cov}. Now, the closed form of the predictive distribution of
+      $f_* \,|\, \mb{y}$ relies on standard formulas for the conditional mean and
+      covariance of a subset of Gaussian random variables conditioned on the
+      rest, see appendix \ref{sec:app1_Gaussian_identities}.
+
+      %       Multiplying together the GP prior and the likelihood and marginalising all except $f_*$ and $\mb{y}$
+      %       \begin{equation*}
+      % 	p(\mb{y} \,|\, \mb{f}) = \Normal{\mb{y} \,|\, \mb{f}}{\sigma^2 \mb{I}} ~.
+      %       \end{equation*}
+
+      %       Finally, we need the \textit{marginal likelihood} or \textit{evidence},
+      %       \begin{equation*}
+      % 	p(\mb{y} \,|\, \mb{x}) = \int p(\mb{y} \,|\, \mb{f}, \mb{x}) p(\mb{f} \,|\, \mb{x}) ~ \textrm{d}\mb{f}
+      % 	  = \Normal{\mb{y} \,|\, \mb{0}}{\mb{K}_f + \sigma^2 \mb{I}} ~.
+      %       \end{equation*}
+
+      %       Then according to Bayes' rule, the conditional distribution over function values, given noisy output observations is:
+      %       The joint distribution of those four quantities $p(f_*, x_{*}, \mb{x},\mb{y})$ is Gaussian,
+      %       hence the conditional $p(f_*  \,|\,  x_{*}, \mb{x},\mb{y})$ is also Gaussian.
+      %       \begin{equation}
+      % 	p(f_* \,|\, x_{*}, \mb{x},\mb{y}) = \frac{ p(f_*, x_{*}, \mb{x},\mb{y}) }{ p(x_{*}, \mb{x},\mb{y}) },
+      %       \end{equation}
+
+      %       \begin{equation*}
+      % 	p(\mb{f} \,|\, \mb{y}, \mb{x}) =  \frac { p(\mb{y} \,|\, \mb{f}, \mb{x}) p(\mb{f} \,|\, \mb{x}) }{ p(\mb{y} \,|\, \mb{x}) } ~.
+      %       \end{equation*}
+
+      \subsubsection{Predictive equations}
+	The mean and covariance of the predictive distribution of $f_* \,|\, \mb{y}$ define
+	the mean function and covariance function of the \textit{posterior} GP,
+	which can be seen intuitively as a distribution over functions that
+	agree with our observations $(\mb{x},\mb{y})$, see Figure \ref{fig:GPfit_all}.
+	For a single new timepoint $x_*$ we have:
+	\begin{align}
+	  \nonumber f_* \,|\, \mb{y} &\sim \Normal{m_*}{\V{f_*}} ~, \quad \textrm{where} \\
+	  \label{equ:chap2_predictive_mean} m_* &= \mb{k}^\top_{f_*} (K_f + \sigma^2 \mb{I})^{-1} \mb{y} ~, \\
+	  \label{equ:chap2_predictive_cov}  \V{f_*} &= k(x_*,x_*) - \mb{k_*}^\top
+	  (K_f + \sigma^2 \mb{I})^{-1}\mb{k_*} ~.
+	\end{align}
+	These equations can be easily generalised for the prediction of function
+	values for a set of new timepoints $\mb{x}_*$, by augmenting
+	$\mb{k}_{f_*}$ with more columns (one for each new timepoint $\mb{x_*}$)
+	and turning $k(x_*, x_*)$ into the matrix defined by $(\mb{K*})_{ij} = k(x_{*i}, x_{*j})$.
+
+	With respect to the joint covariance in eq.~\eqref{equ:chap2_noisy_cov},
+	for every new timepoint $x_*$, a new vector $\mb{k}_{f_*}$ is concatenated
+	as an additional column and row  to give
+	\begin{equation*}
+	  \mathbf{K}_{C+1} = \mat{ \mb{K}_C & \mb{k}_{f_*} \\ \mb{k}_{f_*}^\top &k_* } ~,
+	\end{equation*}
+	where $C$ increments with every new timepoint.
+    
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \subsection{Hyperparameter learning} \label{subsec:chap2_hyperadaptation}
+      Given the data, one can learn the hyperparameters of the kernel by
+      maximising the marginal likelihood of the GP $p(\mb{y} \,|\, \mb{x},\btheta)$, that
+      is, the marginal distribution over outputs $\mb{y}$, governed by the
+      hyperparameters $\btheta$ of $\mb{K}_y$, see eq.~\eqref{equ:chap2_SEcovfunc}.
+      In general, a kernel-based model such as the GP can employ a variety of kernel families
+      whose hyperparameters can be adapted with respect to the underlying intensity
+      and frequency of the local signal structure. The GP can then predict the true signal while
+      quantifying the uncertainty of the prediction, that is, the signal reconstruction happens in a probabilistic fashion.
+      The SE kernel allows us to interpret the adapted hyperparameters
+      intuitively, especially for one-dimensional inputs such as time-series,
+      see Figure \ref{fig:GPfit} for an example of interpreting various local optima.
+
+      \subsubsection{Maximising the GP marginal likelihood}
+	We get a closed form of the marginal likelihood of the GP model by
+	marginalising over the latent function values $\mb{f}$:
+	\begin{align} \label{equ:chap2_marginal3}
+	  p(\mb{y} \,|\, \mb{x}) &= \int \textrm{d}\mb{f} p(\mb{y} \,|\, \mb{f,x})p(\mb{f} \,|\, \mb{x})
+	  = \Normal{\mb{y} \,|\, \mb{0}}{\mb{K}_f + \sigma^2\mb{I}} ~,
+	\end{align}
+	where $p(\mb{f} \,|\, \mb{x})$ is the GP prior from eq.~\eqref{equ:chap2_GPprior}
+	and $p(\mb{y} \,|\, \mb{f},\mb{x})$
+	is the Gaussian likelihood
+	$\Normal{\mb{y} \,|\,  \mb{f}}{\sigma^2\mb{I}}$ factorised across the outputs $\mb{y}$.
+	%       The integral can be evaluated analytically
+	%       \citep[sec. A.2]{Rasmussen:book06}
+	%       to give the LML (log-marginal likelihood)
+	It is common to compute the \textit{log} of the marginal likelihood (LML), as it is
+	more stable numerically and prevents arithmetic underflows:
+	\begin{equation} \label{equ:chap2_NLML}
+	  \begin{split}
+	    \ln p(\mathbf{y} \,|\, \mb{x}, \btheta)
+	      &= -\tfrac{1}{2}\mb{y}^\top\mb{K}_y^{-1}\mb{y}-\tfrac{1}{2}\ln \verts{\mb{K}_y} - \tfrac{n}{2} \ln(2\pi) ~,
+	  \end{split}
+	\end{equation}
+	where $\mathbf{K}_y = \mb{K}_f + \sigma^2\mb{I}$.
+	Note that the marginal here is explicitly conditioned on the hyperparameters $\btheta$ to
+	denote it as a function of the hyperparameters of $\mb{K}_f$.
+
+	To maximise the marginal likelihood, we use the matrix derivative
+	identities in appendix \ref{sec:app1_matrix_derivarives} to compute partial derivatives of the
+	LML with respect to each hyperparameter:
+	\begin{align*}
+	    \pderiv{\theta} \ln p(\mb{y} \,|\, \mb{x},\, \btheta)
+	      &= \tfrac{1}{2} \balpha^\top \pderiv{\theta} \mb{K}_y ~\balpha - \tfrac{1}{2} \tr{\mb{K}_y^{-1} \pderiv{\theta} \mb{K}_y} \\
+	    &= \tfrac{1}{2} \tr{ \left(\balpha \balpha^\top - \mb{K}_y^{-1}\right) \pderiv{\theta} \mb{K}_y } ~,
+	\end{align*}
+	for $\balpha = \mb{K}^{-1}_y ~ \mb{y}$ and
+	\begin{align*} % \label{equ:chap2_derivative}
+	    \pderiv{\ell^2} k_y(x_i, x_j) &=  k_f (x_i, x_j) \frac{(x_i - x_j)^2}{2\ell^4} ~,
+	    &\pderiv{\ell^2} \mb{K}_y = \mb{K}_f \circ \tfrac{1}{2\ell^{4}} \mb{D} ~, \\
+	    \pderiv{\sigma^2_f} k_y(x_i, x_j) &=  k_f (x_i, x_j) ~ \sigma^{-2}_f ~,
+	    &\pderiv{\sigma^2_f} \mb{K}_y(x_i, x_j) =  \tfrac{1}{\sigma^2_f} \mb{K}_f ~, \\
+	    \pderiv{\sigma^2} k_y(x_i, x_j) &=  \delta_{ij} ~,
+	    &\pderiv{\sigma^2} \mb{K}_y =  \mb{I} ~,
+	\end{align*}
+	where $\circ$ denotes the Hadamard product and $(\mb{D})_{ij} = (x_i - x_j)^2$ is the matrix of squared differences.
+	The LML can be optimised through the \textit{scaled conjugate gradients}
+	algorithm \citep{moller1993scaled}, to which we feed the partial derivatives listed above.
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \nomenclature[zMAP]{MAP}{Maximum a posteriori.}
+    \nomenclature[zMCMC]{MCMC}{Markov chain Monte Carlo.}
+    \subsection{Model comparison and ranking with likelihood ratios}
+      Maximising the LML is fundamentally a maximum-likelihood approach, known as type II maximum-likelihood\footnote{As opposed to type I maximum-likelihood on the data likelihood $p(\mb{y} \,|\, \mb{x},\mb{f})$.
+      Type II optimises the parameters of a marginal model.}.
+      %      {\color{red} make sure the integral is indeed the model evidence}
+      Alternatively, we could opt for a fully Bayesian approach, by assuming a \textit{hyper-prior} distribution $p(\btheta \,|\, \mathcal{M})$ over the hyperparameters, where $\mathcal{M}$ represents a particular class of models.
+      The posterior over the hyperparameters,
+      \begin{equation} \label{equ:chap2_hyper_posterior}
+	p(\btheta \,|\, \mb{y}, \mb{x}, \mathcal{M})
+	  = \frac{ p(\mb{y} \,|\, \mb{x}, \btheta, \mathcal{M}) ~ p(\btheta \,|\, \mathcal{M}) }
+	{ \int \textrm{d}\btheta ~ p(\mb{y} \,|\, \mb{x}, \btheta, \mathcal{M}) ~ p(\btheta \,|\, \mathcal{M})} ~,
+      \end{equation}
+      would be based on some initial beliefs encoded in $p(\btheta \,|\, \mathcal{M})$, such as the functions having large lengthscales.
+      A maximum a posteriori (MAP) approach would amount to promoting large lengthscale values (via the prior term), unless there is evidence to the contrary (via the likelihood term).
+      The normalising constant in the denominator is known as the \textit{model evidence}.
+
+      In the presence of different classes of models $(\mathcal{M}_1, \mathcal{M}_2$), 
+      that is, with a different set of hyperparameters $(\btheta_1, \btheta_2)$, a Bayesian-standard way of comparing them
+      is through:
+      \begin{align} \label{equ:chap2_BayesFactor}
+	R(\mathcal{M}_1, \mathcal{M}_2)
+	  = \frac{ p(\mb{y} \,|\, \mb{x}, \mathcal{M}_1) }{ p(\mb{y} \,|\, \mb{x}, \mathcal{M}_2) } \times
+	  \frac{ p(\mathcal{M}_1) }{ p(\mathcal{M}_2) }
+	  = \frac{ p(\mathcal{M}_1 \,|\, \mb{y},\mb{x}) }{ p(\mathcal{M}_2 \,|\, \mb{y},\mb{x}) } ~.
+      \end{align}
+      The first ratio in the RHS is the \emph{Bayes} factor --- a ratio of model evidence terms (recall the one that appears in the
+      denominator of eq.~\eqref{equ:chap2_hyper_posterior}),
+      where the models $(\mathcal{M}_1, \mathcal{M}_2)$ usually represent two complementary hypotheses.
+      Namely,
+      \begin{itemize}
+	\item $\mathcal{M}_1$ - \textit{the profile has a significant underlying
+	  signal and thus it is truly differentially expressed}.
+	\item $\mathcal{M}_2$ - \textit{there is no underlying signal in the profile and
+	  the observed gene expression is simply the effect of random noise.}
+      \end{itemize}
+      In other words, if we can compute this ratio then we can rank the profiles
+      based on how likely it is that model $\mathcal{M}_1$ generated the data relative to $\mathcal{M}_2$.
+      The second factor is a ratio of model priors which weighs the Bayes ratio based on our initial beliefs about the models.
+      Again, this turns out to be a trade-off between initial belief (expert, domain or simply gut knowledge) and empirical 
+      evidence ---  a recurring theme of Bayesian reasoning. Usually, as is the case in here, if there is no good reason to believe
+      that any one model is more probable, then a uniform $p(\mathcal{M})$ is
+      used. See also \citep{yuan2006flexible, angelini2007bayesian, stegle2010robust}
+      for other examples of hypotheses comparisons within a Bayesian framework.
+      
+      In practice, the model class $\mathcal{M}$ is such that the integral
+      (model evidence) in eq.~\eqref{equ:chap2_hyper_posterior}
+      is analytically intractable. Standard approaches to approximating the posterior distribution include the
+      Laplace approximation, or sampling from the posterior with Markov chain Monte Carlo (MCMC)
+      methods to discover its --- potentially multiple --- modes \citep{mackay1999comparison, Neal:monte97}.
+      
+      \paragraph{Approximating ratio} In this case study we present a simpler
+      but effective approach to ranking the differential expression of a profile:
+      Instead of integrating out the hyperparameters, we approximate the Bayes
+      factor with a log-ratio of GP marginal likelihoods (introduced in eq.~\ref{equ:chap2_NLML}):
+      \begin{align} \label{equ:chap2_LMLratio}
+	R(\mathcal{M}_1, \mathcal{M}_2)
+	\approx \ln \{p(\mb{y} \,|\, \mb{x}, \btheta_1)\} - \ln \{p(\mb{y} \,|\, \mb{x}, \btheta_2)\},
+      \end{align}
+      with each LML being a function of different instantiations of
+      $\boldsymbol{\theta}$. That is, we still maintain hypotheses $\mathcal{M}_1$ and
+      $\mathcal{M}_2$, representing the same notions as described above, but in
+      our case they differ simply by configurations of $\btheta$.
+
+      \paragraph{Hyperparameter configuration} Specifically, with $\mathcal{M}_2$ the hyperparameters are fixed to
+      $\btheta_2 = (\infty, 0, \hat{\textrm{var}}[y])^\top$ to encode
+      a function constant in time [$\ell\,^2 \rightarrow \infty$], with no
+      underlying  signal [$\sigma^2_f = 0$], which generates a time-series with an empirical
+      variance that is explained exclusively by noise [$\sigma^2 = \hat{\textrm{var}}[y]$].
+      Analogously, with $\mathcal{M}_1$ the hyperparameters
+      $\btheta_1 = (20, \hat{\textrm{var}}[y], 0)^\top$ are initialised in a way that encodes a function
+      fluctuating in accordance to a typical significant profile --- for instance $\ell^2 = 20$ ---
+      with a signal variance that exclusively explains the empirical
+      time-series variance [$\sigma^2_f = \hat{\textrm{var}}[y]$] and no noise [$\sigma^2 = 0$].
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure[]{ \label{fig:GPfit_all}
+	  \includegraphics[width=.44\linewidth]{GPfit_all_Gene943_DGatta_p63}
+	}
+	\subfigure[]{ \label{fig:GPfit_LML}
+	  \includegraphics[width=.51\linewidth]{LML_Gene943_DGatta_p63}
+	}
+	\caption[GP fits on the expression profile of gene \texttt{Cyp1b1}.]{ \label{fig:GPfit}
+	  \textbf{\subref{fig:GPfit_all}} GP fit on the centred profile of
+	  gene \texttt{Cyp1b1} (probeID \texttt{1416612\_at} in the \texttt{GSE10562} dataset)
+	  with different settings of the lengthscale hyperparameter $\ell\,^2$.
+	  The crosses are zero-mean hybridised gene expression (log2 ratios between
+	  treatment and control). The solid and dotted lines are mean predictions of the GP and the shaded areas
+	  visualise the point-wise mean -/+ two standard deviations (95\% confidence
+	  region).
+	  As $\ell\,^2 \rightarrow \infty$ (0 inverse-lengthscale), the mean
+	  function becomes virtually constant and the empirical output variance
+	  is attributed to noise, $\hat{\textrm{var}}[y] = \sigma^2$.
+	  When the lengthscale $\ell^2$ is set to a large enough value (local-optimum  $\ell\,^2 = 30$),
+	  the mean function roughly fits the data-points and the observed variance is
+	  explained equally by signal and noise, ($\sigma_f^2 = \sigma^2 = 2~\hat{\textrm{var}}[y]$).
+	  Additionally, the GP has higher uncertainty in its predictive curve.
+	  When the lengthscale is set to a local-optimum of a small lengthscale ($\ell^2 = 15.6$)
+	  then the mean function tightly fits the data-points with high certainty. The
+	  interpretation from the covariance function in this case is that the profile
+	  contains a minimal amount of noise and that most of the empirical output variance
+	  is explained by the underlying signal, $\hat{\textrm{var}}[y] = \sigma_f^2$.
+	  \textbf{\subref{fig:GPfit_LML}} The contour
+	  of the corresponding LML function plotted through an exhaustive search of
+	  $\ell\,^2$ and SNR (signal-to-noise ratio) values. The two main local-optima are
+	  indicated with green dots and a third local optimum, that corresponds to the
+	  constant zero function, has a virtually flat vicinity in the contour, which
+	  encompasses the whole lengthscale axis for very small values of SNR (that is, the
+	  lengthscale is not important when SNR$\approx0$).
+	}
+      \end{figure}
+
+      \subsubsection{Local optima of the LML function}
+	The two configurations $(\btheta_1, \btheta_2)$ correspond to two points
+	in the three-dimensional input domain
+	of the LML function, both of which usually lie close to local-optimum
+	solutions. This assumption can be empirically verified by exhaustively
+	plotting the LML function for many instantiations of $\btheta$, see Figure
+	\ref{fig:GPfit_LML}. For the less frequent case of profiles whose LML contour varies radically, a number of
+	initialisation points can be used to ensure convergence to the
+	global-maximum solution. Because the configuration of the first
+	hypothesis (no noise, $\sigma^2=0$) is an unrealistic scenario, we
+	let $\btheta_1$ adapt with respect to a given profile by numerically optimising its LML function,
+	as opposed to keeping it fixed like $\btheta_2$.
+
+	In general, the LML as a function of $\btheta$, eq.~\eqref{equ:chap2_NLML}, is not convex.
+	Nonetheless, local optima do not necessarily pose an obstacle to learning, but provide
+	% 	Depending on the data and as long as they have similar function values,
+	alternative interpretations to the observations.
+	However, to help alleviate the problem of spurious local optimum solutions,
+	we make the following observation: by explicitly restricting the
+	signal variance hyperparameter $\sigma^2_f$ to small
+	values during optimisation, we implicitly restrict the noise variance
+	hyperparameter $\sigma^2$ to large values. This occurs as the explanation
+	of the empirical output variance $\hat{\textrm{var}}[y]$ is split between
+	the underlying signal and noise variance, that is,
+	$\hat{\textrm{var}}[y] = \sigma^2_f + \sigma^2$. This dependency allows
+	us to treat this three-dimensional optimisation problem as an intrinsically two-dimensional
+	problem --- of a lengthscale $\ell^2$ dimension and of a SNR (signal-to-noise ratio)
+	$= \sigma^2_f / \sigma^2$ dimension --- without danger of missing any optima.
+
+	Figure \ref{fig:GPfit_LML} illustrates the log-marginal likelihood as a function of
+	the characteristic lengthscale $\ell^2$ and the SNR. It features two local
+	optima, one with a small lengthscale and high SNR, where the observed data
+	are explained with a complex function and small noise variance,
+	and one optimum for a large lengthscale and a low SNR, where the data are
+	explained by a simpler function with high noise variance.
+	Note that the first optimum has a smaller LML. This relates to the algebraic structure of
+	the LML, eq.~\eqref{equ:chap2_NLML}: the first term (dot product) promotes data
+	fitness and the second term (determinant) penalises the complexity of the
+	model \citep[sec.5.4]{Rasmussen:book06}.
+
+	Overall, the LML function of the Gaussian process offers a good trade-off between fitness and complexity 
+	without the need for additional regularisation. Optionally, we can use
+	multiple initialisation points that focus on different finite lengthscales,
+	to deal with the local optima along the lengthscale axis. Finally, we pick
+	the best solution (max LML) to represent hypothesis $\mathcal{M}_1$ in
+	the likelihood-ratio during the ranking stage.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% Results and Discussion
+  \section{Results and discussion}  \label{sec:chap2_results}
+    We apply standard GP regression and the Bayesian hierarchical
+    model for the analysis of time-series (BATS) on two in-silico datasets simulated
+    by BATS and GPs, and on one experimental dataset coming from a study on primary
+    mouse keratinocytes with an induced activation of the TRP63 transcription
+    factor \citep{della2008direct}. In that study, a reverse-engineering algorithm was developed
+    (TSNI: time-series network identification) for inferring the direct targets of TRP63.
+
+    \subsection{Evaluation setup}
+      \paragraph{ROC curves} We assume that each gene expression profile can be categorized as either quiet
+      or differentially expressed. We consider algorithms that provide a ranking
+      of the profiles, on the basis of which is most likely to be non-quiet (or differentially expressed).
+      Given a ground truth, we can then evaluate the quality of such a ranking and
+      compare different algorithms. We use \textit{receiver operating
+      characteristic} (ROC) curves to evaluate the algorithms. These curves plot
+      the \textit{false positive rate} on the horizontal axis, versus the
+      \textit{true positive rate} on the vertical axis; that is, the
+      percentage of negatives (non-differentially expressed profiles in the ground truth)
+      that were erroneously declared positive (declared differentially expressed), versus the
+      percentage of positives (in the ground truth) that were correctly declared as positives.
+
+      \paragraph{Ground truths} In this case study, we consider a ground truth to consist of a binary vector,
+      of equal length to the number of profiles in the dataset, where the
+      label ``1'' flags the corresponding profile as differentially
+      expressed and the label ``0'' as non-differentially expressed. This can be viewed as a
+      binary classification problem, with a threshold on the ranking-metric
+      playing the role of the decision boundary. By varying that threshold, the
+      corresponding points (FPR, TPR) form an ROC curve. The quality of a
+      ranking can then be summarised by the AUC of the corresponding curve.
+      So a good ranking exhibits a rapidly rising percentage
+      of its first $i$ positions having matching labels [1/0] to the ground truth,
+      as $i$ increases from $1$ to $N$ (all profiles). The following subsections
+      (\ref{subsec:chap2_simdata}, \ref{subsec:chap2_expdata}) describe three such
+      ground truths in detail.
+
+    \subsection{Simulated data} \label{subsec:chap2_simdata}
+      \paragraph{Bayesian Analysis of Time Series}  In BATS \citep{angelini2007bayesian}, the assumption is
+      that each time-course profile is generated by a function projected on an orthonormal basis (Legendre or Fourier),
+      plus some noise. Thus the global estimand for every gene expression
+      trajectory is the linear combination of a number of basis functions, whose
+      coefficients are modeled by a posterior distribution. The number of basis
+      functions and their coefficients, are estimated with closed form
+      computations in a fully Bayesian manner. The BATS framework also
+      allows for various types of non-Gaussian noise models.
+
+      \subsubsection{BATS simulation}
+	The first set of in-silico profiles is simulated by the BATS
+	software\footnote{\url{http://www.na.iac.cnr.it/bats/}} in accordance to the
+	guidelines given by \citet{angelini2008bats}.
+	We reproduce the simulations performed by
+	\citet{angelini2007bayesian}. Specifically, we sample three sets of $N=8000$ profiles,
+	with $n=11$ timepoints and $k_i^j=2$ replicates, for $i=1,\ldots,N$,
+	$j=1,\ldots,n$ except $k_i^{2,5,7}=3$, according to the model defined in
+	\citep[sec. 2.2]{angelini2007bayesian}. In each of the three sets of
+	profiles, 600 out of 8000 are generated as differentially expressed
+	(labeled ``1'' in the ground truth), that is, they are simulated as a
+	linear combination of orthonormal basis function (Legendre polynomials)
+	with additive iid noise.
+
+	The other 7400 non-differentially expressed profiles (labeled as ``0'' in
+	the ground truth) are zero functions with additive iid noise.
+	Each BATS-sampled dataset is induced with a different kind of iid
+	noise --- Gaussian $N(0,\sigma^2)$, Student-$t$ distributed with
+	5 and 3 degrees of freedom (T(3), T(5)).
+% 	\textbf{{\color{red} Move to comparisons:}}
+	Figure \ref{fig:GPvsBATSonBATSdata}(a,b,c)
+	illustrates the comparison on BATS-sampled data with various kinds of noise.
+
+	\begin{figure}[!htbp]
+	  \centering
+	  \subfigure[]{
+	    \includegraphics[width=.47\linewidth]{GPvsBATSonBATSnormdata_2initvec_1}
+	    \label{fig:GPvsBATSonBATSdata_a}
+	  }
+	  \subfigure[]{
+	    \includegraphics[width=.47\linewidth]{GPvsBATSonBATSstu5data_2initvec}
+	    \label{fig:GPvsBATSonBATSdata_b}
+	  }
+	  \subfigure[]{
+	    \includegraphics[width=.47\linewidth]{GPvsBATSonBATSstu3data_2initvec}
+	    \label{fig:GPvsBATSonBATSdata_c}
+	  }
+	  \subfigure[]{
+	    \includegraphics[width=.47\linewidth]{GPvsBATSonGPdata_2initvec}
+	    \label{fig:GPvsBATSonBATSdata_d}
+	  }
+	  \caption[GP vs. BATS on simulated data.] {
+	    ROC curves for the GP and BATS methods on data simulated by BATS
+	    induced with \textbf{\subref{fig:GPvsBATSonBATSdata_a}} Gaussian
+	    noise, \textbf{\subref{fig:GPvsBATSonBATSdata_b}} Student's-\textit{t} with
+	    5 degrees of freedom, \textbf{\subref{fig:GPvsBATSonBATSdata_c}}
+	    Student's-\textit{t} with 3 degrees of freedom,
+	    \textbf{\subref{fig:GPvsBATSonBATSdata_d}} data simulated by GPs.
+	    Each panel depicts one ROC curve for the GP method and three for BATS, each
+	    using a different noise model indicated by the subscript
+	    legend (\textbf{G}aussian, Student's-\textbf{T} and
+	    \textbf{D}ouble-\textbf{E}xponential), followed by the AUC.
+	  } \label{fig:GPvsBATSonBATSdata}
+	\end{figure}
+   
+      \subsubsection{Gaussian process simulation}
+	In a similar setup, the second in-silico dataset consists of $N=$ 8000 profiles
+	sampled from GPs, with the same number of replicates and timepoints,
+	among which 600 are differentially expressed. To generate a differentially expressed profile,
+	we first sample the \textit{hyperparameters} of the RBF kernel from
+	separate Gamma densities, one for each each hyperparameter.
+	% 	The hyperparameters are the \textit{characteristic lengthscale},
+	% 	\textit{signal variance} and \textit{noise variance}, see \ref{} \textbf{Methods}.
+	To resemble the behaviour of BATS-sampled profiles, each Gamma
+	density is fitted to a set of estimates of the corresponding
+	hyperparameter. This is a set of estimates taken from GP training on BATS-sampled profiles.
+	The set only includes estimates from TP-classified profiles at FPR $\approx 0$.
+	Table \ref{table:GammaParams} lists the fitted parameters of the Gamma densities.
+
+	% Gamma dist. of signal variance: 2.76,  0.2
+	%             of noise variance:    23,  0.008
+	%             of lengthscale:      1.4,  5.71
+	\begin{table}[!htbp]
+	  \begin{tabular}{cc|c|c|}
+	    \cline{3-4}
+	    & & \multicolumn{2}{|c|}{Sampling Gamma density $\Gamma(a,b)$} \\
+	    \cline{3-4} & & $a$ (scale) & $b$ (shape) \\ \hline
+	    \multicolumn{1}{|l|}{Sampled} & \multicolumn{1}{|c|}{$\ell\,^2$
+	    (lengthscale)} & 1.4  & 5.7  \\ \cline{2-4}
+	    \multicolumn{1}{|l|}{RBF-} & \multicolumn{1}{|c|}{$\sigma_f^2$ (signal
+	    variance)} & 2.76  & 0.2 \\ \cline{2-4}
+	    \multicolumn{1}{|l|}{hyperparameter} & \multicolumn{1}{|c|}{$\sigma^2$
+	    (noise variance)} & 23 & 0.008 \\ \hline
+	  \end{tabular}
+	  \caption[Gamma distributions for sampling RBF kernel hyperparameters.] {
+	    Gamma distributions from which we sample the RBF hyperparameters. For instance, $\sigma^2_f$
+	    is sampled from a Gamma with scale 1.4 and shape 5.7.
+	    The hyperparameters are then used in the  RBF covariance function to simulate a profile from the GP.}
+	  \label{table:GammaParams}
+	\end{table}
+
+	The other 7400 non-differentially expressed profiles are simply zero
+	functions plus iid spherical Gaussian noise, with variance equal to the sum of a sampled
+	$\sigma^2_f$ and $\sigma^2$, in accordance to Table \ref{table:GammaParams}. This generates a noise-only profile
+	of comparative amplitude to the differentially expressed ones.
+% 	\textbf{{\color{red} Move to comparisons:}}
+	Figure \ref{fig:GPvsBATSonBATSdata_d} illustrates the comparison on the GP-sampled data.
+
+    \subsection{Experimental data} \label{subsec:chap2_expdata}
+      We apply the standard GP regression framework and BATS on an experimental
+      dataset\footnote{GEO database accession number GSE10562.} from a study on primary mouse keratinocytes with an induced
+      activation of the TRP63 transcription factor \citep{della2008direct}.
+      In this study the authors developed TSNI (Time-Series Network
+      Identification), a reverse-engineering algorithm for inferring the  direct targets
+      of TRP63. Based on the AUC of the gene expression trajectories, 786 out of
+      22690 gene reporters were chosen and ranked by TSNI according to the probability of being direct targets of TRP63.
+      This ranking list\footnote{Published as a supplementary file:
+      \url{http://genome.cshlp.org/content/suppl/2008/05/05/gr.073601.107.DC1/DellaGatta_SupTable1.xls}} 
+      serves here as a \textit{noisy ground truth}.
+
+      \paragraph{Preprocessing} Prior to any analysis, we process the data with the RMA (robust multi-array average)
+      expression measure, built in the \texttt{affy} R-package \citep{irizarry2003exploration}.
+      We label as ``1'' the top 100 position of the TSNI ground truth ranking,
+      as they are the best candidate direct targets of the TRP63 transcription factor.
+      This is justified in Figure \ref{fig:distribBScore}, where the distribution of the
+      \textit{binding scores}\footnote{Computed as the sum of -log2 of
+      \textit{p-values} of all TRP63-binding regions identified by ChIP-chip experiments.}
+      is denser within the first 100 ranks.
+      Furthermore, \citet{della2008direct} validated these 100 positions via GSEA (gene set enrichment analysis)
+      \citep{subramanian2005gene} to correlate their up/down regulation patterns
+      to genes that respond to TRP63 knock-downs in general.
+      In summary, \textit{``the top 100 TSNI ranked transcripts are
+      significantly enriched for  the strongest binding sites''}
+      \citep{della2008direct}. Figure \ref{fig:GPvsBATSonDGdata} illustrates the
+      comparison on the experimental data.
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure{
+	  \includegraphics[width=.47\linewidth]{distribBScoreAlongTSNIranking}
+	}
+	\caption[Distribution of binding scores along the TSNI ranking.] {
+	  The distribution of the binding scores is mostly
+	  dense along the first 100 positions of the TSNI ranking.
+	  \citet{della2008direct} selected only the top 100 and bottom 200 genes
+	  to look for binding sites and thus showed that the top 100 genes
+	  have more binding sites than the bottom 200 genes. The limited
+	  concentration in the between-ranks is due to some regions along the
+	  genome being occupied by the same reporter in the microarray.}
+	\label{fig:distribBScore}
+      \end{figure}
+
+    \subsection{Comparison}
+      Ultimately, each model outputs a ranking of differential
+      expression which is assessed by an ROC curve to quantify how well in accordance
+      to each of three ground truths [BATS-sampled, GP-sampled, TSNI-experimental] the method performs.
+      The BATS model uses three different noise models, that is, the marginal distribution of the error is
+      assumed to be either Gaussian, Student-\textit{t} or double-exponential.
+      For the following comparisons we plot four ROC curves, one
+      for each noise model of BATS and one for the GP. We demonstrate that the
+      GP ranking outperforms that of BATS with respect to the TSNI ground truth
+      ranking on the experimental data (Figure \ref{fig:GPvsBATSonDGdata}) and,
+      as expected, on GP-sampled profiles (Figure \ref{fig:GPvsBATSonBATSdata_d}).
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure[]{
+	  \includegraphics[width=.47\linewidth] {GPvsBATSonDGatta_onlyp63_TSNI_2initvec}
+	  \label{fig:GPvsBATSonDGdata_a}
+	}
+	\subfigure[]{
+	  \includegraphics[width=.47\linewidth] {GPvsBATSonDGatta_onlyp63_TSNItop100_2initvec}
+	  \label{fig:GPvsBATSonDGdata_b}
+	}
+	\caption[GP vs. BATS on experimental data.] {
+	  ROC curves for the GP and BATS methods on the experimental data.
+	  As with the simulated data, one ROC curve and its AUC are depicted for the GP method and three
+	  for BATS, each using a different noise model indicated by the subscript in
+	  the legend. \textbf{\subref{fig:GPvsBATSonDGdata_a}} Ground truth consists
+	  of 22690 labels among which only 786 profiles, top-ranked by
+	  TSNI, are labeled ``1''. \textbf{\subref{fig:GPvsBATSonDGdata_b}} Similarly, here only
+	  100 profiles, top-ranked by TSNI, are labeled ``1''.}
+	\label{fig:GPvsBATSonDGdata}
+      \end{figure}
+
+
+    \subsection{Discussion}
+      On BATS-sampled data, Figure \ref{fig:GPvsBATSonBATSdata}(a,b,c), we observe
+      that the change in the induced noise is barely noticeable in regards to the
+      performances of both methods and that BATS maintains its stable supremacy over
+      the GP framework. This performance gap is partially due to the lack of a
+      robust  noise model for the GP (see section \ref{subsec:chap2_related_work}, \textbf{Related work}).
+      %   \emph{But this begs the question why don't we just do one?}
+      Furthermore, there is a modeling bias in the underlying functions of the
+      simulated profiles, which contain a finite small degree of differentiability\footnote{
+      The maximum degree of Legendre polynomials is 6.}. This puts the GP in a
+      disadvantaged position as it models for smooth (infinitely differentiable)
+      functions due to its \textit{squared exponential} covariance function.
+      Consequently, for this simulated dataset the GP is more susceptible to
+      capturing spurious patterns as they are more likely to lie within its
+      modeling range, whereas for BATS modeling the polynomials with a limited
+      degree acts as a safeguard against spurious patterns, most of which vary
+      rapidly in time.
+
+      On GP-sampled data, Figure \ref{fig:GPvsBATSonBATSdata_d}, we observe a switch in terms of superiority in favor of the GP framework, while its performance is virtually unaffected.
+      The GP still seems susceptible to non-differentially expressed profiles with spurious patterns as well as differentially expressed profiles with excessive noise.
+      However, the polynomials of limited degree of BATS show to be inadequate for many of the GP-sampled functions and the two BATS variants with robust noise models (BATS$_T$, BATS$_{DE}$) only alleviate the problem slightly.
+
+      Similarly, Figure \ref{fig:GPvsBATSonDGdata} shows the GP maintaining superiority over the
+      Gaussian noise variant of BATS by a similar degree. The experimental data are more
+      complex and the robust BATS variants seem to offer no performance boost.
+      Since the ground truth focuses on the 100 most differentially
+      expressed genes, with respect to the induction of the TRP63 transcription
+      factor, then these results indicate that the proposed GP ranking method
+      indeed highlights differentially expressed genes, with an attractive
+      robustness against various kinds of noise.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %% Conclusions
+  \section{Conclusions} \label{sec:chap2_conclusions}
+    We presented an approach to estimating the continuous trajectory of gene expression time-series from microarray data through Gaussian process regression and ranking the differential expression of each profile through a log-ratio of two GP marginal likelihoods, each one representing the hypothesis of differential and non-differential expression respectively.
+    
+    We compared our method to a recent Bayesian hierarchical model (BATS) via ROC curves, on data simulated by BATS and GPs and experimental data.
+    %     Each evaluation was made on the basis of matched percentages to a ground truth - a binary vector
+    %     which labeled the profiles in a dataset as differentially expressed or not.
+    The experimental data were taken from a previous study on primary mouse keratinocytes and the top 100 genes of its ranking were used here as the noisy ground truth for the purposes of assessment.
+    
+    The GP framework significantly outperforms BATS on experimental and GP-sampled data and the results show that standard GP regression can be regarded as a standard tool in evaluating the continuous trajectories of gene expression and ranking its differential expression.
+    
+    One of our primary assumptions in this chapter was that of an unstructured noise process. Once we explained any structure with the RBF, all that was left was iid Gaussian spherical noise.
+    In chapter \ref{chap3:RCA} we present a framework for uncovering any structured noise, given a partial explanation of the joint covariance.
+    Later in chapter \ref{chap5:RCAapps} we will demonstrate this idea of residual analysis as a sequel to the analysis in this chapter.
+
+    \subsection{Related work} \label{subsec:chap2_related_work}
+      The proposed ranking scheme relates to the work of \citet{stegle2010robust} on \textit{two-sample} data (separate time-course profiles for each treatment), where the two competing hypotheses are represented by two different generative models connected by a \textit{gating} scheme: one hypothesis assumes that the two profiles of a gene reporter are generated by two different GPs, explaining the gene as \textit{differentially expressed} across the two treatments.
+      The other hypothesis assumes that the two profiles are generated by the same GP, thus the gene is \textit{non-differentially expressed}.
+      The \textit{gate} serves as a switch between the two generative models, in time, to detect \textit{intervals} of differential expression.
+      This gives biologists a means for investigating the propagation of perturbations in a gene regulatory network.
+
+%       While this case study and its proposed methodology follow a more basic approach, 
+%       we note that robust mechanisms against outliers, such as the ones used by
+%       \citet{stegle2010robust} (see also \citet{Vanhatalo:gaussian09, Tipping:variational05}),
+%       are complementary to this work and we encourage researchers to
+%       incorporate one into a time-course analysis framework such as ours.
+      Practicalities aside, this case study demonstrates that
+      Gaussian process regression is a natural fit to the analysis of gene expression
+      time-series and its simplicity can still outweigh the ever-increasing, but
+      necessary, complexity of hierarchical Bayesian models.
+      %\emph{Punctuation dashes are written with three dashes --- not one -. One is
+      % used for hyphens etc.}
+      %   Issues:
+      % There can be cases of profiles with outlying expression levels at specific
+      % timepoints, but otherwise having a distinct signal. [Steegle et.al] have dealt
+      % effectively with this issue by using a robust but slightly more complex
+      % version of the GP regression framework.
+
+    \subsection{Future work}
+      % \emph{I think the robust noise model is actually more interesting. This is
+      % cool, but less high priority than that.}
+      While this case study and the proposed methodology follow a more basic approach, 
+      we note that robust mechanisms against outliers, such as the ones used by
+      \citet{stegle2010robust} (\citealp[see also][]{Vanhatalo:gaussian09, Tipping:variational05}),
+      are complementary to this work and including one would be a sensible extension of our framework.
+      Finally, the potential periodicity of the underlying signal sets another interesting biological
+      question about the behaviour of gene expression. For this purpose, a different kind of stationary
+      covariance function, the \textit{periodic} covariance function
+      \citep[section 45.4]{MacKay:book03}, can be used to fit a time-series generated by a periodic
+      process, with the lengthscale hyperparameter interpreted as its cycle.
+      % Also, contrary to \cite{stegle2010robust, della2008direct}, the GPs used
+      % here do not give any information on the interaction of genes in a network.
+      % [for report]
+      % This can be illustrated through a real example of a gene expression profile
+      % where a single noisy mRNA-level measurement 'forces' the mean function of the
+      % GP to fit the noise, thus causing it to appear 'bumpy' as shown in figure ?.
+
+    \subsection{Source code}
+      The source code for the GP regression framework is available in Matlab
+      code\footnote{\url{http://staffwww.dcs.shef.ac.uk/people/N.Lawrence/gp/}} and as
+      a package for the R statistical language\footnote{\url{http://cran.r-project.org/web/packages/gptk/}}.
+      The routines for the estimation and ranking of the gene expression time-series are
+      available in Matlab\footnote{\url{http://staffwww.dcs.shef.ac.uk/people/N.Lawrence/gprege/}}
+      and as an R Bioconductor package\footnote{\url{http://www.bioconductor.org/packages/2.10/bioc/html/gprege.html}}.
+      The time needed to serially analyse the 22690
+      profiles in the experimental dataset, with just the two basic initialisation points
+      of hyperparameters, is roughly 30 minutes on a desktop running Ubuntu 10.04 with a
+      2.8GHz CPU and 3.2 GiB of memory. Since the gene expression profiles are
+      independently fitted, the procedure can be parallelised for N cores,
+      cutting the computation time down to 30/N minutes.
+      
+    \subsection{Authors contributions}
+      Alfredo Kalaitzis (AK) designed and implemented the computational analysis and ranking scheme presented here, assessed the various methods  and drafted the related manuscript.
+      Neil Lawrence (NL) pre-processed the experimental data and wrote the original Gaussian process toolkit for MATLAB and AK rewrote it for the R statistical language.
+      Both AK and NL participated in interpreting the results and revising the manuscript.
+      %       All authors read and approved the final manuscript.
+
+
+% ------------------------------------------------------------------------
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
