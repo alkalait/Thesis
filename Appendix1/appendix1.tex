@@ -1,0 +1,345 @@
+\chapter{Mathematical background}
+\ifpdf
+    \graphicspath{{Appendix1/Appendix1Figs/PNG/}{Appendix1/Appendix1Figs/PDF/}{Appendix1/Appendix1Figs/}}
+\else
+    \graphicspath{{Appendix1/Appendix1Figs/EPS/}{Appendix1/Appendix1Figs/}}
+\fi
+  In this appendix we provide enough basic background on each topic to make this thesis self-contained. For further discussions on each topic we provide references in their respective sections.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Gaussian identities}	\label{sec:app1_Gaussian_identities}
+
+    Let $X = \{x_1, x_2, ..., x_n \}$ be a set of scalar random variables in $\Realspace$,
+    \[
+      x_i \sim \Normal{\mu_i}{\sigma^2_i} ~.
+    \]
+
+    If $\{A,B\}$ is a partition on $X$, that is, $A \cup B = X ~ \textrm{and} ~ A \cap B = \textrm{\O}$, for non-empty $A$ and $B$, then with $\mb{x}_A$ we denote an ordered collection of the random variables in $A$. By slight abuse of notation, we use $\mb{x}$ also as a vector of scalar random variables in $\Realspace^p$. Thereby,
+    \[
+      \Normal{\mb{x}_A |~ \bmu_{A}}{\bSigma_{A}}
+      = (2\pi)^{-p/2} \verts{\bSigma_A}^{-1/2} ~\expo{-\tfrac{1}{2} (\mb{x}_A - \bmu_A)^\top\bSigma^{-1}_A(\mb{x}_A - \bmu_A)} ~,
+    \]
+    denotes the Gaussian distribution over the random variable $\mb{x}_A$ and similarly for the set $B$. The \textit{joint}, \textit{marginal} and \textit{conditional} distributions of Gaussians are also Gaussian but the \emph{product} of two Gaussians distribution yields an \emph{unnormalised} Gaussian. See also \citep{vonMises:mathematical64, Bishop:book06} for a detailed treatment.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Joint distribution}
+      If ~$\mb{x}_{A} \sim \Normal{\bmu_A}{\bSigma_A}$~ and ~$\mb{x}_{B} \sim \Normal{\bmu_B}{\bSigma_B}$, then
+      \begin{equation} \label{equ:app1_joint}
+	\mat{\mb{x}_A \\ \mb{x}_B} \sim \Normal{ \mat{\bmu_A \\ \bmu_B} }{ \mat{ \bSigma_{A~} &\bSigma_{AB} \\ \bSigma_{BA} &\bSigma_{B~} } } = \Normal{ \mat{\bmu_A \\ \bmu_B} }{ \mat{ \bLambda_{A~} &\bLambda_{AB} \\ \bLambda_{BA} &\bLambda_{B~} }^{-1} } ~,
+      \end{equation}
+      where the \emph{partitioned} joint precision (inverse of the joint covariance) is: $\mat{ \bLambda_{A~} &\bLambda_{AB} \\ \bLambda_{BA} &\bLambda_{B~} }$
+      \begin{equation} \label{equ:app1_blkinv}
+	= \mat{ \left(\bSigma^{~}_{A} - \bSigma_{AB}^{~} \bSigma^{-1}_{B} \bSigma_{BA}^{~}\right)^{-1} &-\bLambda_A^{~}\bSigma^{~}_{AB}\bSigma_{B}^{-1} \\
+	-\bSigma_B^{-1}\bSigma^{~}_{BA}\bLambda_{A}^{~} & \bSigma^{-1}_B + \bSigma^{-1}_B \bSigma^{~}_{BA}\bLambda^{~}_{A}\bSigma^{~}_{AB}\bSigma^{-1}_B} ~.
+      \end{equation}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Marginal distribution}
+      If eq.~\eqref{equ:app1_joint} holds for two random variables $\mb{x}_A$ and $\mb{x}_b$, then the marginal distribution of $\mb{x}_A$ is:
+      \begin{equation} \label{equ:app1_marginal}
+	p(\mb{x}_A)  = \int \textrm{d}\mb{x}_B ~ p(\mb{x}_A, \mb{x}_B) = \Normal{\bmu_A}{\bSigma_A}
+      \end{equation}
+      and similarly for $\mb{x}_B$. Marginalisation relies on completing a square in the exponential of the Gaussian, see \citep{Bishop:book06}.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Conditional distribution}
+      More interestingly,
+      %       according to Bayes' rule,
+      %       \[
+      % 	p(\mb{x}_A | \mb{x}_B) = \frac{ p(\mb{x}_A , \mb{x}_B) }{ p(\mb{x}_B) } ~,
+      %       \]
+      the mean and covariance of the conditional distribution of $\mb{x}_A | \mb{x}_B$ are:
+      \begin{align}
+	% \Normal{\bmu_{A|B}}{\bSigma_{A|B}}
+	\bmu_{A|B} &= \bmu_{A} + \bSigma^{~}_{AB} \bSigma^{-1}_{B} (\mb{x}_B - \bmu_B) \\
+	\bSigma_{A|B} &= \bLambda_A^{-1} ~.
+	% \bSigma_{A} - \bSigma_{A|B}^{~} \bSigma^{-1}_{B} \bSigma_{B|A}^{~} ~.
+      \end{align}
+      Note that the \emph{conditional precision} is simply the upper-left block of the \textit{joint precision}, eq.~\eqref{equ:app1_blkinv}. This nicely juxtaposes the \emph{marginal covariance} being simply the upper-left block of the \emph{joint covariance}, eq.~\eqref{equ:app1_marginal}.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Product of Gaussians} \label{subsec:app1_prodGaussians}
+      The product of two Gaussian distributions over the same domain yields an \emph{unnormalised} Gaussian:
+      \begin{align} \label{equ:app1_Gaussian_product}
+	\nonumber \Normal{\mb{x} | \bmu_A}{\bSigma_A} ~ &\Normal{\mb{x} | \bmu_B}{\bSigma_B} ~ \propto ~ \Normal{ \mb{x}| \bmu_C}{\bSigma_C}, \quad \textrm{where} \\ 
+	\begin{split}
+	  & \bmu_C = \bSigma_C \left(\bSigma^{-1}_A \bmu_A + \bSigma^{-1}_B \bmu_B \right)^{-1} \\
+	  & \bSigma_C = \left(\bSigma^{-1}_A + \bSigma^{-1}_B \right)^{-1} ~.
+	\end{split}
+      \end{align}
+      For the product, note that the precision matrix of the unnormalised Gaussian is simply the \emph{sum} of the individual precisions and the mean is the \textit{convex sum} of the means, weighted by the individual precisions \citep[section A.2]{Rasmussen:book06}.
+
+      % \paragraph{Kronecker product of Gaussians}
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Matrix derivatives} \label{sec:app1_matrix_derivarives}
+
+
+    All matrix derivatives are based on the following differential forms ($\mb{a}, \mb{A}$ are constants):
+    \begin{align}
+      \partial \mb{A} &= \mb{0} \\
+      \partial (\mb{X}^\top) &= (\partial \mb{X})^\top \\
+      \partial (\mb{X} + \mb{Y}) &= \partial \mb{X} + \partial\mb{Y} \\
+      \label{equ:app1_deriv_constfactor} \partial (\mb{A}\mb{X}) &= \mb{A} \partial \mb{X} \\
+      \partial (\mb{a}^\top\mb{X}\mb{a}) &= \mb{a}^\top (\partial \mb{X}) \mb{a}\\
+      \partial (\mb{X}\mb{Y}) &= (\partial\mb{X})\mb{Y} + \mb{X}(\partial\mb{Y}) \\
+      \label{equ:app1_deriv_kron} \partial (\mb{X} \otimes \mb{Y}) &= (\partial\mb{X})\otimes\mb{Y} + \mb{X}\otimes(\partial\mb{Y}) \\
+      \partial \mb{X}^{-1} &= -\mb{X}^{-1}(\partial\mb{X})\mb{X}^{-1} \\
+      \label{equ:app1_deriv_trace} \partial \, \tr{\mb{X}} &= \tr{\partial \mb{X}} \\
+      \label{equ:app1_deriv_logdet} \partial \ln \verts{\mb{X}} &= \tr{ \mb{X}^{-1} \partial \mb{X} } ~.
+    \end{align}
+    For proofs on these identities, see \citep{Magnus:matrix88}. For any of the above, if the $\mb{X}$ in $\frac{\partial f}{\partial \mb{X}}$ is symmetric then
+    \begin{equation} \label{equ:app1_deriv_symmetricX} 
+      \frac{\partial f}{\partial \mb{X}} = \left[\frac{\partial f}{\partial \mb{X}}\right] + \left[\frac{\partial f}{\partial \mb{X}}\right]^\top - \mb{I} \circ \left[\frac{\partial f}{\partial \mb{X}}\right] ~.
+    \end{equation}
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Linear algebra} \label{sec:app1_linear_algebra}
+
+    We describe here some basic matrix properties for reference \citep{Golub:matrix96, Strang:introduction03, Horn:matrix90}. In the following, let $\mb{X}\in \Realspace^{n \times m}$ be a arbitrary real rectangular matrix.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Singular value decomposition}
+      As a culmination of the \emph{fundamental theorem of linear algebra}, the SVD neatly connects the \emph{four fundamental subspaces} of $\mb{X}$ in the form of mapping between two orthonormal spaces:
+      \begin{equation}
+	\mb{X} = \mb{U} \mb{L} \mb{V}^\top  ~,
+      \end{equation}
+      where $\mb{U}$ is an orthogonal matrix whose columns are called the \emph{right-singular vectors} and they form an orthonormal basis for the \emph{direct sum\footnote{$\mathcal{X} \oplus \mathcal{Y} = \{ (x,y) ~|~ x \in \mathcal{X}, y \in \mathcal{Y}\}$.} of the column-space and left-null space} of $\mb{X}$. The columns of the orthogonal matrix $\mb{V}$ are the \emph{left-singular vectors} and they form a basis for the \emph{direct sum of the row-space and null space}. The diagonal $m \times n$ matrix $\mb{L}$ contains the \emph{singular values} $l_i$ responsible for the scaling from one space to the other. Now, any linear transformation can be broken down to its constituent steps: For a right-singular vector $\mb{v}_i$,
+      \[
+	\mb{X} \mb{v}_i = (\mb{U} \mb{L} \mb{V}^\top) \mb{v}_i = \mb{U}\mb{L} \mb{e}_i = l_i \mb{u}_i ~,
+      \]
+      and since any $\mb{a} \in \Realspace^m$ can be expressed as a linear combination of the right-singular vectors $\mb{v}_i$, then
+      \[
+	\mb{X}\mb{a} =  (\mb{U} \mb{L} \mb{V}^\top) (c_1 \mb{v}_1 + \dots + c_m \mb{v}_m) = \sum_i c_i l_i \mb{u}_i = \mb{b} ~,
+      \]
+      shows the mapping to a linear combination of the left-singular vectors $\mb{u}_i$.
+
+      \subsubsection{Connection to the spectral theorem}
+	It follows that the left and right-singular vectors are the \emph{eigenvectors} of $\mb{X}\mb{X}^\top$ and $\mb{X}^\top \mb{X}$ respectively and the singular values are the \emph{square roots of the eigenvalues}, shared by both matrices:
+	\begin{align}
+	  \begin{split}
+	    \nonumber &\mb{X}\mb{X}^\top = (\mb{U} \mb{L} \mb{V}^\top)(\mb{V} \mb{L}^\top \mb{U}^\top)
+	    = \mb{U} \mb{L}^2 \mb{U}^\top\\
+	    &\mb{X}^\top \mb{X} = (\mb{V} \mb{L}^\top \mb{U}^\top)(\mb{U} \mb{L} \mb{V}^\top)
+	    = \mb{V} \mb{L}^2 \mb{V}^\top ~.
+	  \end{split}
+	\end{align}
+	If $\mb{X}$ is symmetric then obviously $\mb{X}\mb{X}^\top = \mb{X}^\top \mb{X} = \mb{X}^2 = \mb{U} \mb{L}^2 \mb{U}^\top = \mb{V} \mb{L}^2 \mb{V}^\top$, thereby $\mb{U} = \mb{V}$ and
+	\begin{equation}
+	  \mb{X} = \mb{U} \mb{L} \mb{U}^\top ~,
+	\end{equation}
+	which is the \emph{spectral} or \emph{eigen-decomposition} of $\mb{X}$. This also shows a method to compute the singular vectors of any $\mb{X}$ through the eigenvectors and eigenvalues of $\mb{X}\mb{X}^\top$ and $\mb{X}^\top\mb{X}$, which in turn can be computed efficiently by the \emph{QR method} or \emph{Francis QR step} \citep{Golub:matrix96}. In the special case where all the eigenvalues of the symmetric $\mb{X}$ are positive (non-negative), then $\mb{X}$ is \emph{positive (semi-)definite}, that is, $\mb{a}^\top \mb{X} \mb{a} > ~ 0 ~ (\geq ~ 0) ~ \textrm{for all non-zero} ~ \mb{a} \in \Realspace^{m}$. Therefore, $\mb{X}\mb{X}^\top$ and $\mb{X}^\top\mb{X}$ are \emph{always} positive (at-least-)semi-definite.
+
+      \subsubsection{Economy SVD}
+	For matrices $\mb{X}\in \Realspace^{n \times m}$ of rank $r$ where $m$ and $n$ differ greatly, an equivalent \emph{economic} form of the SVD should be used:
+	\[
+	  \mb{X} = \mb{U}^{~}_r \mb{L}^{~}_r \mb{V}^\top_r  = \sum_i l^{~}_i \mb{u}^{~}_i \mb{v}^\top_i ~,
+	\]
+	where $\mb{U}_r$ and $\mb{V}_r$ now have $r\leq\textrm{min}(n,m)$ orthonormal columns, thus we only have to compute the $r$ principal eigenvalues and eigenvectors.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Geometry of oblique projections} \label{subsec:app1_oblique_projection}
+      The notation and introduction approach in this section are adapted from \citep{Behrens:signal94}.
+      Let $\mb{P} \in \Realspace^{p \times p}$ be an arbitrary projection matrix with column rank $q < p$. Let $\mathcal{C}(\mb{P}),~\mathcal{R}(\mb{P})$ and $\mathcal{N}(\mb{P})$ denote the \textit{column-space} (or \textit{range}), \textit{row-space} and \textit{null-space} of $\mb{P}$ respectively. What we mean by a \textit{projection} is that the matrix transforms any vector $\mb{x}$ in $\Realspace^p$ to a vector inside the column-space $\mathcal{C}(\mb{P})$ of dimension $q$. Naturally, any vector already in $\mathcal{C}(\mb{P})$ is unaffected by $\mb{P}$, therefore for $\mb{P}$ to be a projection it must be \textit{idempotent}:
+      \[
+	\mb{P}^2 = \mb{P} ~.
+      \]
+      An eigenvector of the projection is either any vector in $\mathcal{C}(\mb{P})$, with corresponding eigenvalue 1, or any vector in the space that is orthogonal to the row space $\mathcal{R}(\mb{P})$, that is, the null space $\mathcal{N}(\mb{P})$, with eigenvalue 0. Now we make a distinction between \textit{orthogonal} and \textit{oblique} (non-orthogonal) projections. For this, let $\mb{X} \in \Realspace^{p \times q}$ be an arbitrary rectangular matrix of rank $q$.
+
+      \paragraph{Orthogonal projections} Intuitively, \textit{orthogonal} projections are characterised by the fact that they project the whole of $\Realspace^p$ on a \emph{right} vertically to $\mathcal{C}(\mb{P})$. Hence, only vectors of the space \emph{orthogonal} to the column space $\mathcal{C}(\mb{P})$, the null space $\mathcal{N}(\mb{P})$, are mapped to $\mb{0}$. % In general, the row space of any matrix is always orthogonal to its null space, so since $\mathcal{C}(\mb{P})$ and $\mathcal{R}(\mb{P})$ and orthogonal complements of $\mathcal{N}(\mb{P})$, then $\mathcal{C}(\mb{P})=\mathcal{R}(\mb{P})$.
+      The projection $\mb{P}$ is orthogonal iff
+      \[
+	\mb{P} = \mb{P}^\top ~.
+      \]
+      To construct an orthogonal projection that projects onto the column-space of $\mb{X}$ $(\mathcal{C}(\mb{P}) = \mathcal{C}(\mb{X}))$, then
+      \[
+	\mb{P}_{\mb{X}} \triangleq \mb{X} \left( \mb{X}^\top \mb{X} \right)^{-1} \mb{X}^\top ~,
+      \]
+      which is symmetric and idempotent. Note that $\mb{P}_{\mb{X}}\mb{X} = \mb{X}$ and $\mb{P}_{\mb{X}}\mb{A} = \mb{0}$, where $\mathcal{C}(\mb{A}) = \mathcal{N}(\mb{X})$ and that only a basis of $\mathcal{C}(\mb{X})$ is needed to uniquely define $\mb{P}_{\mb{X}}$.
+
+      \paragraph{Oblique projections} The projection angle of $\mb{P}$ wrt to $\mathcal{C}(\mb{P})$ is \textit{oblique} (non-right) iff $\mb{P}$ is \emph{not symmetric}, thought it is still idempotent. Recall that for an orthogonal projection, since the angle projecting on $\mathcal{C}(\mb{X})$ is right, then the column space of the projection \emph{automatically determines the space along which} $\mb{P}$ projects. In other words, there is only one possible choice for $\mathcal{N}(\mb{P})$ and that is $\mathcal{N}(\mb{X})$. \emph{This is not the case for oblique projections}. Due to the projecting direction forming an oblique angle $\alpha$\footnote{Actually, there is a \textit{set} of principal angles between two Euclidean spaces, but for simplicity we refer to them as one.} with $\mathcal{C}(\mb{P})$, there is an infinity of possible choices for $\mathcal{N}(\mb{P})$: simply take any such space with the angle $\alpha$ from $\mathcal{C}(\mb{X})$ and precess it about the axis orthogonal to $\mathcal{C}(\mb{X})$. Thereby, we need \textit{two spaces} to uniquely define an oblique projection $\mb{P}_{\mb{X},\mb{N}}$, $\mathcal{C}(\mb{P}) \triangleq \mathcal{C}(\mb{X})$ and $\mathcal{N}(\mb{P}) \triangleq \mathcal{C}(\mb{N})$, for some $\mb{N} \in \Realspace^{p \times q^\prime}$, such that $q^\prime + q \leq p$, whose columns we arrange to span the null-space of the oblique projection. Now note that $\mb{P}_{\mb{X},\mb{N}} \mb{X} = \mb{X}$ and $\mb{P}_{\mb{X},\mb{N}} \mb{N} = \mb{0}$. In this sense, oblique projections can be seen to \textit{generalise}\footnote{Not in the strict sense since they do not subsume orthogonal projections.} orthogonal projections as they depend on a superset of the parameters. Figure \ref{fig:projections} illustrates the relationship between the fundamental subspaces of projections.
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure{
+	  \includegraphics[width=.9\linewidth]{projections}
+	}
+	\caption[The fundamental subspaces of projections.]{ \label{fig:projections}
+	  The fundamental subspaces of projections. The column-space and null-space of an orthogonal projection (left panel) are \textit{orthogonal complements} so either one uniquely determines the other. The null-space of an oblique projection (right panel) intersects the column-space at the origin at an \emph{oblique} angle, so both bases are required to characterise the projection onto $\mathcal{C}(\mb{P})$ along the direction of $\mathcal{N}(\mb{P})$. Note that in this case $\mathcal{N}(\mb{P})$ can have any dimension $q^\prime \leq p$; in the diagram the subspaces jointly span the whole space purely for visualisation purposes.
+	}
+      \end{figure}
+
+      Now consider the joint subspace spanned by the concatenated columns of $[\mb{X}~\mb{N}]$, hence the partitioned form of its orthogonal projection is
+      \[
+	  % \begin{split}
+	  \mb{P}_{[\mb{X}~\mb{N}]}
+	  %  &= [\mb{X}~\mb{N}] ( [\mb{X}~\mb{N}]^\top[\mb{X}~\mb{N}] )^{-1} [\mb{X}~\mb{N}]^\top \\
+	  \triangleq [\mb{X}~\mb{N}] \mat{ \mb{X}^\top\mb{X} & \mb{X}^\top\mb{N} \\ \mb{N}^\top\mb{X} & \mb{N}^\top\mb{N} }^{-1} \mat{ \mb{X}^\top \\ \mb{N}^\top } ~.
+	  %  \end{split}
+      \]
+      In the formula, we can see that the left block provides a basis that is coupled with coordinates computed by the middle and right blocks. Then we can decompose the contributions of $\mathcal{C}(\mb{X})$ and $\mathcal{C}(\mb{N})$ since they are disjoint by assumption:
+      \[
+	\begin{split}
+	  \mb{P}_{[\mb{X}~\mb{N}]} &= [\mb{X}~\mb{0}] \mat{ \mb{X}^\top\mb{X} & \mb{X}^\top\mb{N} \\ \mb{N}^\top\mb{X} & \mb{N}^\top\mb{N} }^{-1} \mat{ \mb{X}^\top \\ \mb{N}^\top } + [\mb{0}~\mb{N}] \mat{ \mb{X}^\top\mb{X} & \mb{X}^\top\mb{N} \\ \mb{N}^\top\mb{X} & \mb{N}^\top\mb{N} }^{-1} \mat{ \mb{X}^\top \\ \mb{N}^\top } \\
+	  &= \mb{P}_{\mb{X,N}} + \mb{P}_{\mb{N,X}} ~.
+	\end{split}
+      \]
+      Using the \textit{partitioned inverse formula} gives the more concise form:
+      \begin{equation} \label{equ:app1_oblique_projection}
+	\mb{P}_{\mb{X,N}} = \mb{X} ( \mb{X}^\top \mb{P}_{\mb{N}}^\perp \mb{X} )^{-1} \mb{X}^\top \mb{P}_{\mb{N}}^\perp ~,
+      \end{equation}
+      where $\mb{P}_{\mb{N}}$ is the projector onto $\mathcal{C}(\mb{N})$ and $\mb{P}_{\mb{N}}^\perp \triangleq \mb{I} - \mb{P}_{\mb{N}}$ the projector onto the orthogonal complement of $\mathcal{C}(\mb{N})$. The projector $\mb{P}_{\mb{N}}^\perp$ can be seen as a null-steering operator that nulls everything in the null-space of the projector. It is easy to verify that $\mb{P}$ is \emph{idempotent} (but not symmetric) with column-space $\mathcal{C}(\mb{X})$: $\mb{P}_{\mb{X,N}} \mb{X} = \mb{X} ( \mb{X}^\top \mb{P}_{\mb{N}}^\perp \mb{X} )^{-1} ( \mb{X}^\top \mb{P}_{\mb{N}}^\perp \mb{X}) = \mb{X}$, and null space $\mathcal{C}(\mb{N})$: $\mb{P}_{\mb{X,N}} \mb{N} = \mb{X} ( \mb{X}^\top \mb{P}_{\mb{N}}^\perp \mb{X} )^{-1} \mb{X}^\top (\mb{P}_{\mb{N}}^\perp \mb{N} ) = \mb{0}$. It follows that $\mb{P}_{\mb{X,N}}$ is the oblique projection onto $\mathcal{C}(\mb{X})$ along the direction of $\mathcal{C}(\mb{N})$ and similarly for $\mb{P}_{\mb{N,X}}$.
+
+    % ------------------------------------------------------------------------
+
+    \subsection{Woodbury matrix identity} \label{subsec:app1_Woodbury}
+      In a partitioned inverse, such as eq.~\eqref{equ:app1_blkinv}, the inverse of the upper-left block
+      $\bLambda^{-1}_A = \bSigma^{~}_A - \bSigma_{AB}^{~} \bSigma^{-1}_B \bSigma_{BA}^{~}, $
+      is known as the \textit{Schur complement} of $\bSigma_B$ in the joint covariance matrix.
+      An alternative way to partition the inverse is through the Schur complement of $\bSigma_A$,
+      that is, $\bLambda^{-1}_B = \bSigma^{~}_B - \bSigma_{BA}^{~} \bSigma^{-1}_A \bSigma_{AB}^{~}$,
+      (which requires only an exchange of the letters):
+      \begin{equation} \label{equ:app1_blkinv2}
+	\bSigma^{-1}
+	= \mat{ \bSigma^{-1}_A + \bSigma^{-1}_A \bSigma^{~}_{AB}\bLambda^{~}_B\bSigma^{~}_{BA}\bSigma^{-1}_A  &-\bLambda^{~}_B\bSigma^{~}_{BA}\bSigma^{-1}_{A} \\
+	-\bSigma_A^{-1}\bSigma_{AB}^{~}\bLambda_{B}^{~} & \left(\bSigma_B^{~} - \bSigma_{BA}^{~} \bSigma_A^{-1} \bSigma_{AB}^{~}\right)^{-1} } ~.
+      \end{equation}
+      Equating the upper-left blocks of eqs.~\eqref{equ:app1_blkinv} and \eqref{equ:app1_blkinv2}
+      gives the \textit{Woodbury matrix identity} (in its general form for symmetric matrices):
+      \begin{equation}
+	\left(\mb{A} - \mb{C} \mb{B}^{-1} \mb{C}^\top \right)^{-1}
+	= \mb{A}^{-1} + \mb{A}^{-1} \mb{C} \left( \mb{B} - \mb{C}^\top \mb{A}^{-1} \mb{C} \right)^{-1} \mb{C}^\top \mb{A}^{-1} ~,
+      \end{equation}
+      where \quad $\mb{A} = \bSigma_{A}, \quad \mb{B} = \bSigma_B$ \quad and \quad $\mb{C} = \bSigma_{AB}~$.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{EM for learning low-rank plus sparse-inverse covariance structures} \label{sec:app1_EM_forLRSI}
+
+    \subsection{Variational lower bound}
+
+      Given data $~\mb{Y}$, our goal is to infer the sparse structure of the underlying GMRF, encoded by a sparse-inverse covariance term $\bLambda^{-1}~$. We can efficiently estimate $\bLambda$ with the GLASSO algorithm \citep{Friedman:sparse08, Banerjee:model2008}. The challenge is to estimate $\bLambda$ \emph{in the presence of low-rank structures} $\mb{W}\mb{W}^\top$ in the marginal covariance, induced by confounders $~\mb{X}$. In a fully Bayesian setting we would compute the posterior $~p(\bLambda \,|\, \mb{Y}, \mb{W})~$. By Bayes' rule:
+      \[
+	p(\bLambda \,|\, \mb{Y}, \mb{W}) \propto p(\mb{Y} \,|\, \bLambda, \mb{W}) ~ p(\bLambda) ~,
+      \]
+      where $~p(\bLambda)~$ is some kind of sparsity-inducing prior on $\bLambda$ (for instance, a Laplace distribution). The normalising constant of the posterior is an intractable integral so it is omitted. We opt for a MAP (point) estimate of $~\bLambda~$ which is equivalent to maximising the joint distribution $~p(\mb{Y}, \bLambda \,|\, \mb{W}) = p(\mb{Y} \,|\, \bLambda, \mb{W}) ~ p(\bLambda)~$. However, the maximum has no closed-form solution so we approximate it by \emph{maximising a lower bound} on the mode of the log-posterior:
+      \begin{align}
+	\nonumber \ln \left\{ p(\mb{Y}, \bLambda \,|\, \mb{W}) \right\}
+	& = \ln \int p( \mb{Y}, \bLambda, \mb{Z} \,|\, \mb{W} ) ~ \textrm{d} \mb{Z}
+	= \ln \int q(\mb{Z}) ~ \frac{ p( \mb{Y}, \bLambda, \mb{Z} \,|\, \mb{W} ) }{ q(\mb{Z}) } ~ \textrm{d} \mb{Z} \\
+	\label{equ:app1_LB} & \geq \int q(\mb{Z}) ~ \ln \left\{ \frac{ p( \mb{Y}, \bLambda, \mb{Z} \,|\, \mb{W} ) }{ q(\mb{Z}) } \right\} ~ \textrm{d} \mb{Z} ~.
+      \end{align}
+      Since the log function is \textit{concave}, the last line applies \textit{Jensen's inequality} to yield the lower bound \citep{MacKay:book03}.
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Update equations}
+
+      Now we derive the update equations of the hybrid EM/RCA algorithm for optimising the parameters of the low-rank plus sparse-inverse covariance in the joint distribution $~p(\mb{Y}, \bLambda \,|\, \mb{W}) = \prod_i \Normal{ \mb{y}_i \,|\, \mb{0} }{ \mb{W} \mb{W}^\top + \bLambda^{-1} }~p(\bLambda)~$. For fixed $\bLambda^\prime$ and $\mb{W}^\prime$ the lower bound is maximised when the variational distribution equals the posterior: $q(\mb{Z}) = p(\mb{Z}\,|\,\mb{Y},\mb{W}^\prime,\bLambda^\prime)~$. We have:
+      \begin{align*}
+	& \ln \left \{ p(\mb{Z}\,|\,\mb{Y},\mb{W}^\prime,\bLambda^\prime) \right\} \\
+	\ceq &\ln p(\mb{Y}\,|\,\mb{Z},\mb{W}^\prime) + \ln p(\mb{Z} \,|\, \bLambda^\prime)
+	= \ln \Normal{\mb{Y}\,|\,\mb{Z}}{\mb{W}^\prime {\mb{W}^\prime}^\top + \sigma^2 \mb{I}  } + \ln \Normal{ \mb{Z} \,|\,\mb{0} }{ {\bLambda^\prime}^{-1} } \\
+	\ceq & \tfrac{1}{2} \sum_i \left\{ - \ln \verts{\mb{W}^\prime {\mb{W}^\prime}^\top + \sigma^2 \mb{I}}\verts{\bLambda^\prime} - (\mb{y}_i - \mb{z}_i)^\top \left( \mb{W}^\prime {\mb{W}^\prime}^\top + \sigma^2 \mb{I} \right)^{-1} (\mb{y}_i - \mb{z}_i) - \left( \mb{z}_i^\top \bLambda^\prime \mb{z}_i \right) \right\} .
+      \end{align*}
+
+      \paragraph{Update for $\mb{Z}$} Isolating the \emph{linear} and \emph{quadratic} terms in $\mb{z}_i$ gives the posterior expectation and covariance respectively as the update equations for $\mb{Z}~$:
+      \begin{align}
+	\V{\mb{z} \,|\, \mb{y}} &= \left( \left( \mb{W}^\prime {\mb{W}^\prime}^\top + \sigma^2\mb{I} \right)^{-1} + \bLambda^\prime \right)^{-1} \\
+	\E{ \mb{z}_i \,|\, \mb{y}_i } &= \V{\mb{z} \,|\, \mb{y}} \left ( \mb{W}^\prime {\mb{W}^\prime}^\top + \sigma^2\mb{I} \right)^{-1} \mb{y}_i \\
+	\label{equ:app1_Zsecmoment} \mathbb{E}_{p(\mb{z}\,|\,\mb{y})}[ \mb{z}_i \mb{z}_i^\top ] &= \V{ \mb{z} \,|\, \mb{y} } ~+~ \E{ \mb{z}_i \,|\, \mb{y}_i } \E{ \mb{z}_i \,|\, \mb{y}_i }^\top ~.
+      \end{align}
+      By fixing the variational distribution as the new posterior $q(\mb{Z}) = p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime )$, eq.~\eqref{equ:app1_LB} becomes
+      \begin{align*}
+	\nonumber & \int p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ \ln \left\{ \frac{ p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ p(\mb{Y}, \bLambda^\prime \,|\, \mb{W}^\prime) }{ p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) } \right\} ~ \textrm{d} \mb{Z} \\
+	= &\int p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ \ln p(\mb{Y}, \bLambda^\prime \,|\, \mb{W}^\prime) ~ \textrm{d} \mb{Z}
+	\quad = \quad \ln p(\mb{Y}, \bLambda^\prime \,|\, \mb{W}^\prime) ~,
+      \end{align*}
+      the maximisation of which wrt $\bLambda$ leads to its update (the M-step).
+
+      \paragraph{Update for $\bLambda$} From eq.~\eqref{equ:app1_LB}, isolating any factors that depend on $\bLambda$ gives:
+      \begin{align*}
+	& \int p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ \ln \left\{ \frac{ p(\mb{Z}, \bLambda ) ~ p(\mb{Y} \,|\, \mb{Z}, \mb{W}^\prime) }{ p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) } \right\} ~ \textrm{d} \mb{Z} \\
+	= & \int p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ \left \{ \ln p(\mb{Z}, \bLambda ) + \ln p(\mb{Y} \,|\, \mb{Z}, \mb{W}^\prime) - \ln p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) \right\} ~ \textrm{d} \mb{Z} ~.
+      \end{align*}
+      The maximisation of the above does not depend on terms independent from $\bLambda$. Eliminating such terms leads to the complete-data expected log-likelihood:
+      \begin{align*}
+	&\underset{\bLambda}{\textrm{argmax}}~ \int p(\mb{Z} \,|\, \mb{Y}, \mb{W}^\prime, \bLambda^\prime ) ~ \ln p(\mb{Z}, \bLambda ) ~ \textrm{d} \mb{Z} \quad = \quad \underset{\bLambda}{\textrm{argmax}}~ \mathbb{E}_{p(\mb{Z}\,|\,\mb{Y})} \left[ \ln p(\mb{Z}, \bLambda ) \right] \\
+	= \quad &\underset{\bLambda}{\textrm{argmax}} ~ \mathbb{E}_{ p(\mb{Z}\,|\,\mb{Y})} \left[ \sum_i \left\{ -\tfrac{p}{2} \ln 2 \pi + \tfrac{1}{2}\ln \verts{\bLambda} - \tfrac{1}{2} \mb{z}_i^\top \bLambda \mb{z}_i^{~} \right\} - \tfrac{n}{2} \lambda \norm{\bLambda}_1  \right] \\
+	= \quad &\underset{\bLambda}{\textrm{argmax}} ~ \ln \verts{\bLambda} - \tfrac{1}{n} \sum_i \left\{ \mathbb{E}_{ p(\mb{Z}\,|\,\mb{Y})} \left[ \tr{ \mb{z}_i^{~} \mb{z}_i^\top \bLambda } \right] \right\} - \lambda \norm{\bLambda}_1 \\
+	= \quad &\underset{\bLambda}{\textrm{argmax}} ~ \ln \verts{\bLambda} - \tr{ \tfrac{1}{n} \sum_i \left\{  \mathbb{E}_{ p(\mb{Z}\,|\,\mb{Y})} \left[ \mb{z}_i^{~} \mb{z}_i^\top \right] \right\} \bLambda } - \lambda \norm{\bLambda}_1 ~.
+      \end{align*}
+      By eq.~\eqref{equ:app1_Zsecmoment}, the last line amounts to a GLASSO problem with covariance
+      \begin{align*}
+        &\tfrac{1}{n} \sum_i \mathbb{E}_{ p(\mb{Z}\,|\,\mb{Y})} \left[ \mb{z}_i^{~} \mb{z}_i^\top \right] = \V{ \mb{z} \,|\, \mb{y} } ~+~ \tfrac{1}{n} \widehat{\mb{Z}}^\top \widehat{\mb{Z}} ~,\\
+	\textrm{where} \quad &\widehat{\mb{Z}}^\top = \Big[~ \E{ \mb{z}_1 \,|\, \mb{y}_1 } ~\dots~ \E{ \mb{z}_n \,|\, \mb{y}_n } ~\Big] ~.
+      \end{align*}
+      
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Derivatives for BiGLasso} \label{sec:app1_deriv_biglasso}
+  
+    \paragraph{Gradient wrt $\bPsi_n$} Taking the gradient of eq.~\eqref{equ:chap6_biglasso_minPsi}, with respect to $\bPsi_{ij}$ and using the identity \eqref{equ:app1_deriv_logdet} we get:
+    \begin{align*}
+        \frac{\partial}{\partial \Psi_{ij}}\ln| \bPsi_n \oplus \bTheta_p |
+        = \textrm{tr} \left\{ (\bPsi_n \oplus \bTheta_p)^{-1}  \frac{\partial (\bPsi_n \oplus \bTheta_p)}{\partial  \Psi_{ij}} \right\}& \\
+        = \textrm{tr} \left\{ \mb{W} \left(\frac{\partial \bPsi_n }{\partial  \Psi_{ij}} \otimes \mb{I}_p \right) \right\}&~, \quad \textrm{by} \quad \eqref{equ:app1_deriv_kron} \\
+        = \textrm{tr} \left\{ \mb{W} \left( (\mb{J}^{ij}+\mb{J}^{ji} - \mb{J}^{ij}\mb{J}^{ij}) \otimes \mb{I}_p \right) \right\}&~, \quad \textrm{by} \quad \eqref{equ:app1_deriv_symmetricX} \\
+        = \textrm{tr} \left\{ \mb{W} \mat{ \mb{0} & \dots & \mb{0}  \\ \vdots & \mb{I}_p^{(\mb{i},\mb{j})} & \vdots \\ \mb{0} & \dots & \mb{0} }  \right\} + \textrm{tr} \left\{ \mb{W} \left( \mb{J}^{ji} \otimes \mb{I}_p \right) \right\} - \textrm{tr} \left\{ \mb{W} \left( \mb{J}^{ij}\mb{J}^{ij} \otimes \mb{I}_p \right) \right\} \\
+        = 2 ~\textrm{tr} \left\{ \mb{W}_{(\mb{i},\mb{j})}  \right\} - \delta_{ij} \textrm{tr} \left\{ \mb{W}_{(\mb{i},\mb{j})}  \right\}& ~,\\
+    \end{align*}
+    where $\mb{W} \triangleq (\bPsi_n \oplus \bTheta_p)^{-1};\quad \mb{I}_p^{(\mb{i},\mb{j})}$ is at the $(i,j)$-th block of size $p \times p$, that is, $(\mb{i},\mb{j}) = [(pi\!-\!p\!+\!1)\!:\!pi \,,~ (pj\!-\!p\!+\!1)\!:\!pj]; \quad \mb{J}^{ij}$ is the single-entry matrix (with $J_{ij}=1$ and zeros elsewhere); $\quad \delta_{ij}=1$ if $i=j$, $\delta_{ij}=0$ if $i\neq j$.
+    Therefore
+    \begin{equation} \label{equ:app1_derivPsi_part1}
+      \frac{\partial}{\partial \bPsi_n} \ln|\bPsi_n \oplus \bTheta_p| = 2 ~ \textrm{tr}_p \left( \mb{W} \right) - \textrm{tr}_p \left( \mb{W} \right) \circ \mb{I} ~.
+    \end{equation}
+    Also, using \eqref{equ:app1_deriv_constfactor} and \eqref{equ:app1_deriv_trace} gives
+    \begin{equation} \label{equ:app1_derivPsi_part2}
+      \frac{\partial ~p\,\tr{\bPsi_n \mb{T}}}{\partial \bPsi_n}  = 2p\,\mb{T} - \mb{T} \circ \mb{I}~.
+    \end{equation}
+    
+%    \paragraph{Gradient wrt $\bTheta_p$} Taking the gradient of eq.~\eqref{equ:chap6_biglasso_minTheta}, with respect to $\Theta_{ij}$ gives:
+%    \begin{align*}
+%        \frac{\partial}{\partial \Theta_{ij}}\ln| \bPsi_n \oplus \bTheta_p |
+%        = \textrm{tr} \left\{ \mb{W}  \frac{\partial (\bPsi_n \oplus \bTheta_p)}{\partial  \Theta_{ij}} \right\}
+%        = \textrm{tr} \left\{ \mb{W}  \left( \mb{I}_n \otimes (\mb{J}^{ij}+\mb{J}^{ji} - \mb{J}^{ij}\mb{J}^{ij}) \right)\right\} \\
+%%        = \textrm{tr} \left\{ \mb{W}  \mat{ \mb{J}^{ij}+\mb{J}^{ji} - \mb{J}^{ij}\mb{J}^{ij} & &\\ &\ddots & \\ & & \mb{J}^{ij}+\mb{J}^{ji} - \mb{J}^{ij}\mb{J}^{ij} } \right\} \\
+%%        = \textrm{tr} \left\{ \mat{ \big[\mb{0} &\mb{W}_{:,i}^{(j)} &\mb{0}\big] &\dots &\big[\mb{0} &\mb{W}_{:,(n-1)p+i}^{((n-1)p+j)} &\mb{0}\big]} \right\} \\
+%        = \sum_{k=1}^n \tr{\mb{W}_{\mb{k}\mb{k}}(\mb{J}^{ij}+\mb{J}^{ji} - \mb{J}^{ij}\mb{J}^{ij})}, \quad (\textrm{because} \quad \tr{\mb{A}\mb{B}} = \sum_{ij}A_{ij}B_{ij}) ~,\\
+%        = \sum_{k=1}^n \left\{ 2(\mb{W}_{\mb{k}\mb{k}})_{ij} - \delta_{ij} (\mb{W}_{\mb{k}\mb{k}})_{ij} \right\}~,
+%    \end{align*}
+%    where $\mb{W}_{\mb{k}\mb{k}}$ is the $(k,k)$-th $p \times p$ block of $\mb{W}$. Therefore
+%    \begin{equation} \label{equ:app1_derivTheta_part1}
+%      \frac{\partial}{\partial \bTheta_p} \ln|\bPsi_n \oplus \bTheta_p| = \sum_{k=1}^n \left\{ 2 \mb{W}_{\mb{k}\mb{k}} - \mb{W}_{\mb{k}\mb{k}} \circ \mb{I} \right\} ~.
+%    \end{equation}
+%    Also,
+%    \begin{equation} \label{equ:app1_derivTheta_part2}
+%      \frac{\partial ~ n \, \tr{ \bTheta_p \mb{S} }}{\partial \bTheta_p} ~  = 2n\,\mb{S} - \mb{S} \circ \mb{I}~.
+%    \end{equation}
+
+% ------------------------------------------------------------------------
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
