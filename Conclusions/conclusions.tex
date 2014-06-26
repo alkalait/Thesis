@@ -1,0 +1,97 @@
+\def\baselinestretch{1}
+\chapter{Conclusions and future work} \label{chap7:conclusions}
+
+\ifpdf
+    \graphicspath{{Conclusions/ConclusionsFigs/PNG/}{Conclusions/ConclusionsFigs/PDF/}{Conclusions/ConclusionsFigs/}}
+\else
+    \graphicspath{{Conclusions/ConclusionsFigs/EPS/}{Conclusions/ConclusionsFigs/}}
+\fi
+
+\def\baselinestretch{1.66}
+
+
+% Here I put my conclusions ...{\color{red} [TO BE WRITTEN ...]}
+
+  \subsection*{Conclusions}
+
+  In the thesis we have studied a number of covariance structures for exploiting relationships between covariates.
+  The relevancy of these structure to realistic problems relies on three properties of the Gaussian distribution: the non-parametric formulation of smooth functions with kernel matrices, the formulation of conditional independence constraints through structural zeros in the inverse-covariance and most importantly, the formulation of low-rank bases through the spectral analysis of the covariance.
+
+  In chapter \ref{chap2:GP} we proposed the Gaussian process as the default tool for fitting gene-expression trajectories with encouraging results compared to a state-of-the-art Bayesian hierarchical model specialised to this task.
+  The inter-timepoint modeling was done through a temporal covariance structure, defined by a RBF for simplicity.
+  Other kernels could help, but the question of preference would be lie outside the scope of this thesis.
+  The residual structure left by the RBF was assumed to be Gaussian spherical noise.
+  
+  The relaxation of this assumption motivated chapter \ref{chap3:RCA}, where we introduced the \textit{residual component analysis} (RCA) algorithm: a maximum-likelihood approach for identifying a low dimensional representation of the residuals when the covariance is partially explained by another covariance of fixed-effects.
+    We proved how the low-rank component in the joint covariance of the covariates can be determined through a generalized eigenvalue problem (GEP), for dual and primal representations.
+    With further analysis, the GEP of RCA turned out to reduce to PCA/PPCA (a regular eigenvalue problem) on the joint sample-covariance of a particular linear transformation of the data.
+    We also showed that this transformation is strongly connected to an oblique (non-orthogonal) projection of the data.
+    The projector is governed by the inverse of the explained covariance term, which plays the role of a \textit{null-steering operator} in the posterior expectation of the latent components.
+    Conversely for a fixed transformation, every PCA problem is mapped to an RCA problem, effectively declaring them equivalent.
+    Now every problem that can be reduced to RCA, can also be reduced to PCA.
+    
+    Chapter \ref{chap4:RCAgeneralisations} enumerated a few such problems, with the most prominent recently in machine learning being CCA/PCCA.
+    Another notable example is LDA, which was already known to reduce to CCA (so that connection came for free), though it involves mixed (binary and continuous) data.
+    The primal and dual variants of the RCA theorem provide a probabilistic interpretation to classical generalised-projection algorithms, thus with the potential to unify many different algorithms.
+    The take-away message was that with further imaginative instantiations of the explained covariance term $\bSigma$, one can develop new approaches to data analysis.
+    
+    A few such approaches are demonstrated in Chapter \ref{chap5:RCAapps}.
+    One approach involves a more accurate fitting of sparse-inverses (or structure learning of Gaussian graphical models) by combining it with a low-rank covariance term that acts as the residual covariance when the data suffer from confounding low-rank effects.
+    With the former problem having already been solved to some extent by the Graphical Lasso and the latter with a just-proposed solution, the natural next step was to devise an EM algorithm (EM/RCA) that iteratively fits one structure at a time.
+    The EM/RCA algorithm was tested to good effect on protein-signaling data, motion-capture data and Eurovision voting data.
+    The second new approach revisited the GP regression problem from Chapter \ref{chap2:GP} with a low-rank plus RBF kernel covariance structure to characterise more accurately any the structured error in the time-series.
+    Again, the idea was to fit both structures in a flip-flop fashion, but a single pass sufficed to outperform the same baseline method from chapter \ref{chap2:GP}.
+    
+    Finally in chapter \ref{chap6:BiGLasso}, we focused to \emph{conditional} independencies induced by the inverse-covariance of a matrix-normal density.
+    The vectorised re-parametrization of the matrix-normal has a Kronecker-product covariance structure. Its properties enable flip-flop approaches for fitting its $np\times np$ covariance that reduce training time from $\mathcal{O}(n^2p^2)$ to $\mathcal{O}(n^2 + p^2)$ in the number of matrix dimensions.
+    We motivated a novel structure for the joint precision, the Cartesian factorisation of graphs (Kronecker-sum of precisions), as a more parsimonious and interpretable structure for inter-sample and inter-feature conditional dependencies.
+    In the context of regression, the Kronecker-product cancels any transfer (that is, inducing zero correlations) between responses (tasks) of multiple regressions.
+    The Kronecker-sum does not suffer from this shortcoming due to its additive functional form.
+    We also proposed the bi-Graphical Lasso (BiGLasso), an algorithm with the novel Kronecker-sum inverse-covariance structure for the simultaneous L1-estimation of the structures of two Gaussian graphical models: one over the rows of a matrix-sample and the other over its columns.
+    It responded with encouraging results on simulations as well as an example from the COIL dataset.
+
+    
+    %An obvious extension that would exploit the associativity of the Cartesian product, would be the modeling of datasets organised into 3 or higher-dimensional arrays (amounting to indices of higher-dimensional GMRFs) with dependencies across any subset of the array margins.
+    
+%    Large Gaussian graphs could also benefit from this structures, assuming they can be reasonably approximated by factorisations such as the tensor-product (adjacency matrix version of the Kronecker-product).
+
+
+    
+  \subsection*{Future work}
+          
+    We touched on a number of potential directions while discussing RCA.
+    
+    \paragraph{Better inference}
+    One could enrich the RCA framework in ways parallel to the developments of PPCA (for instance, see Bayesian PCA \citep{Bishop:bayesPCA98}).
+    A Bayesian treatment of RCA would be of interest as there is a plethora of work on priors for the low-rank part that consider the latent dimensionality of the confounders, or the sparsity of the low-rank weights $\mb{W}$, for instance see \emph{spike-and-slab} \citep{Mohamed:Bayesian12}, the \emph{horseshoe} \citep{Carvalho:horseshoe10}, or the \emph{generalised double Pareto} prior \citep{Armagan:GDP11}).
+    Chapter \ref{chap5:RCAapps} presented a MAP estimator for the M-step (of EM/RCA) when the explained covariance term $\bSigma$ is sparse-inverse, but one might wish to consider suitable priors depending on the application (and thus structure) of $\bSigma$. These suggestions would merely augment our earlier graphical models.
+    
+    \paragraph{Other structured composites}
+    Also mentioned in \S \ref{subsec:chap3_related_work}, a combination of \emph{low-rank plus sparse} might be useful for learning \emph{marginal dependency} structures, for a Bayesian approach see \citep{Silva:ADMGStructure11}.
+    The Kronecker-sum structure studied in Chapter \ref{chap6:BiGLasso} can be readily extended to three or more precisions by exploiting the associativity of the Cartesian product. Training on 3-or-higher-dimensional data-arrays (amounting to the number of indices required to access an entry) would proceed analogously to Algorithm \ref{alg:chap6_biglasso} but with more transpositions of the  data-array indices involved.
+        
+    \paragraph{Non-linear non-Gaussian models}
+    Finally, we established a solid relationship of RCA\footnote{Usage of the term 'RCA' here is akin to PCA/PPCA and refers collectively to the RCA generalised eigenvalue problem and RCA maximum-likelihood solution.} to PCA and CCA, but not so much to LDA, ICA and their \emph{kernelised} variants.
+    It is not straightforward how one could generalise RCA to a GPLVM-like model, as oblique projections probably lose any meaning in an RKHS in general.
+    However, we believe there is hope for representing mixed-data (discrete, ordinal, continuous) via Gaussian copulas --- an up-and-coming line of research for semi-parametric learning in machine learning and more traditional in statistics.
+    Existing approaches could be adapted \citep{Hoff:Extending07, Murray:BGCFM11} so that our RCA framework is applied on the Gaussian latent representations of non-Gaussian, discrete or ordinal observations.
+    
+  
+    
+%IDEAS:
+%
+%- extension to Gaussian copulas
+%
+%- Kronecker-sum of three or more precisions for higher-dimensional arrays of data.
+%
+%- further exploration of the link between RCA and kernel LDA.
+
+
+%%% ----------------------------------------------------------------------
+
+% ------------------------------------------------------------------------
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
