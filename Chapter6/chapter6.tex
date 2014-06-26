@@ -1,0 +1,644 @@
+\chapter[The Bigraphical Lasso]{The Bigraphical Lasso} \label{chap6:BiGLasso}
+\ifpdf
+    \graphicspath{{Chapter6/Chapter6Figs/PNG/}{Chapter6/Chapter6Figs/PDF/}{Chapter6/Chapter6Figs/}}
+\else
+    \graphicspath{{Chapter6/Chapter6Figs/EPS/}{Chapter6/Chapter6Figs/}}
+\fi
+
+  % {\color{red} [Abstract here...]}
+  
+  Until now, we have embraced the endemic assumption in machine learning of i.i.d. data.
+  We now look at the more general case where this assumption can be flawed: more complex data sets
+  can exhibit partial correlations between data points as well as features.
+  To deal with correlation of this type we introduce the \emph{bigraphical Lasso}.
+  The model is based on a Gaussian distribution over random matrices that specifies correlations between data points and features.
+  It does so with a structured (\emph{Kronecker-sum}) precision matrix that induces a Cartesian product of undirected graphs, a prominent product with well studied properties in spectral graph theory.
+  One factor represents the graph over the rows of the matrix and the other the graph over the columns.
+  This structure has appealing properties for regression and enhanced interpretability.
+  
+  The most general of such matrix-models has a number of parameters that scales quadratically with features and data points.
+  To deal with this parameter explosion we introduce $\ell_1$ penalties and fit the model through a flip-flop algorithm that reduces the problem to a series of lasso regressions.
+   We demonstrate the performance of our approach with extensive simulations and an example from the COIL image data set.
+    
+    
+  \section{Introduction}
+  
+  
+    When fitting Gaussian models to data, we usually make an independence assumption across data points and fit the covariance matrix by maximum likelihood.
+  The number of parameters in the covariance matrix can be reduced by factor analysis like structures (see Chapters \ref{chap3:RCA} and \ref{chap4:RCAgeneralisations})
+  % \citep[see e.g.][]{Tipping:probpca99}
+  or by constraining the inverse-covariance (or precision matrix) to be sparse \citep[e.g.][]{Banerjee:model2008}.
+  A sparse precision matrix defines a Gaussian Markov random field which is conveniently represented by a weighted undirected graph.
+  Nodes which are not neighbors in the graph are conditionally independent given all other nodes.
+  Models specified in this way can learn conditional independence structures between features.
+
+  An alternative Gaussian modeling approach was introduced by \citet{Lawrence:unifying12}, who showed that spectral dimensionality reduction methods have an interpretation as sparse graphical models where the independence assumption is across data features, and the parameters of the covariance are fitted by maximum likelihood (or in the case of local linear embeddings \citep{Roweis:lle00} by maximizing a pseudolikelihood).
+  This assumption leads to much better determined parameters in the case where the number of features is greater than the number of data points (the so called large $p$, small $n$ case). 
+
+  The choice of feature independence or data point independence is a model choice issue, but both choices are in fact a simplification of a more general framework that aims to estimate the conditional independence relationships between both features and data points.
+  It is this type of model that we address in this chapter.
+  Specifically we want to build a sparse graph that interrelates both features and data points. 
+    For instance, we might have a data set that is a video.
+    Here the data points are the frames of the video and the data features are the pixels in the video.
+    Let's assume that the ordering of the video frames and the neighborhood structure between pixels has somehow been lost.
+    A potential learning task would be to learn both the temporal structure of the data and the spatial structure of the inter related pixels.
+    We successfully solve this task for a simple video from the COIL data set in Section \ref{sec:chap6_coildata}.
+    
+    An alternative motivating data example could be gene expression data, where we might wish to extract a genetic network from the gene expression values whilst explaining correlations between samples (such as close genetic relationships, or related experiments) with a separate network.
+    Econometrics, computational biology and computer vision are very few example domains that often deal with datasets of complex dependency structures that are best approximated with higher-dimensional models of matrices or tensors.
+    Such data are more naturally represented by \emph{matrix-variate} distributions.
+  
+%    The majority of machine learning research and practice focuses on learning from vectorial data, that is, iid samples of some vector-variate $\mb{x} = (x_j)_{1\dots p}$.
+%    Domains like econometrics, computational biology and computer vision often deal with datasets of complex dependency structures that are best approximated with higher-dimensional models of matrices or tensors.
+%    One of the simplest such scenarios deals with inter-sample dependencies --- for instance, specifying dependencies across video frames as well as pixels, or dependencies across different populations of time-course microarrays (gene expression time-series).
+%    Such data are more naturally represented by \emph{matrix-variates}.
+
+    \subsection{Graphical Lasso and the matrix-variate Gaussian}
+
+      The \emph{graphical lasso} \citep[GLasso,][]{Friedman:sparse08, Banerjee:model2008} is a computationally efficient penalised likelihood algorithm for learning sparse structures of conditional dependencies or Gaussian Markov random fields (GMRF) over features of iid vector-variate Gaussian samples \citep{Lauritzen:graphical96}.
+
+      The matrix-variate normal \citep{Dawid:MatrixVariate81, Gupta:MatrixVariate99} is a Gaussian density which can be applied to a matrix through first taking a vectorized (\emph{vec}) representation\footnote{Vectorization of a matrix involves converting the matrix to a vector by stacking the columns of the matrix.} of the matrix samples $\mb{X} \in \Realspace^{n \times p}$ and assuming the covariance matrix has the form of a Kronecker product between two covariance matrices, separately associated with the rows and columns of the data. The Kronecker product assumption for the covariance implies that the precision matrix is also a Kronecker product, which is formed from the Kronecker product of the precision matrices associated with the rows and columns ($\bPsi \otimes \bTheta$).
+
+      One approach to applying sparse graphical models to matrix data is to combine the Kronecker product structured matrix variate normal with the graphical Lasso.  \citet[MLE, ][]{Dutilleul:MLE99} used a flip-flop approach for maximum likelihood estimation of the parameters of the matrix-normal and much later \citet{Zhang:Learning10} used it for MAP estimation with sparsity penalties on the precision matrices.
+    More recently, \citet{Leng:Sparse12} applied the SCAD penalty \citep{Fan:Variable01} as well as the Lasso in the likelihood function of the matrix-normal.
+    \citet{Tsiligkaridis:Convergence13} analyzed the convergence of Kronecker GLasso under asymptotic conditions as well as simulations that show significant convergence speedups over GLasso and MLE.
+    
+    However, whilst the Kronecker-product structure arises naturally when considering matrix-normals (Kronecker-normals), it is relatively dense when it comes to the dependencies it suggests between the  rows.
+    More precisely, if $\Psi_{ij}$ in $\bPsi \otimes \bTheta$ is non-zero (for example, corresponding to an edge between samples $i$ and $j$ in the design matrix $\mb{X}$) then many edges between features of sample $i$ and sample $j$ (as many as in $\bTheta$) will also be active.
+    A \emph{sparser} structure would benefit situations where the connection between a feature of some sample and a different feature of any other sample is of no interest or redundant, simply because a same-feature dependency between different samples would suffice to establish a cross-sample dependency.
+    For instance in a video, it is reasonable to assume given that the neighbors of pixel $(i,j)$ in frame $k$ are conditionally independent to the neighbors of pixel $(i,j)$ in frame $k+1$, conditioned on pixels $(i,j)$ of both frames.
+    
+    \subsection{The Bigraphical Lasso}
+    
+      In this chapter, we introduce the \emph{bigraphical Lasso} (BiGLasso), a model for matrix-variate data that preserves their column/row structure and, like the Kronecker product based matrix-normal, simultaneously learns two graphs, one over rows and one over columns of the matrix samples.
+      The model is trained in a flip-flop fashion, so the number of Lasso regressions reduces to $\mathcal{O}(n+p)$.
+      However, the model preserves the matrix structure by using a novel Kronecker \emph{sum} structure for the precision matrix, $(\bPsi \otimes \mb{I}) + (\mb{I} \otimes \bTheta)$ instead of the Kronecker product ($\bPsi \otimes \bTheta$).
+      {\color{black} This structure enjoys \emph{enhanced sparsity} in comparison to the conventional Kronecker-product structure of matrix-normals.
+    
+      In the context of regression models, the Kronecker-sum prevents the conditional independence between responses of multi-output Gaussian processes, a property known in various literatures as \emph{cancellation of inter-task transfer} or \emph{autokrigeability}.}
+    
+      When operating on adjacency matrices, the Kronecker-sum is also known in algebraic graph theory as the Cartesian product of graphs {\color{black} and is arguably the most prominent of graph products \citep{Sabidussi:graph59, Chung:Spectral96, Imrich:TopicsInGT08}}.
+      This endows the output of the BiGLasso with a more intuitive and interpretable graph decomposition of the induced Gaussian random field (GRF), see figure \ref{fig:graph_products}.
+      \begin{figure}[!htbp]
+        \centering
+        \subfigure[]{ \label{fig:cartesian_product}
+          \includegraphics[width=.45\linewidth]{Graph_Cartesian_product}
+        }
+        \hfill
+        \subfigure[]{ \label{fig:tensor_product}
+          \includegraphics[width=.45\linewidth]{Graph_tensor_product}
+        }
+        \caption[Cartesian and tensor product of graphs.]{ \label{fig:graph_products}
+          When acting on adjacency matrices of graphs, the Kronecker-sum acts as the Cartesian-product \subref{fig:cartesian_product} and the Kronecker-product as the tensor-product \subref{fig:tensor_product}.
+          The lattice-like structure of the Cartesian-product is ideal for modeling dependencies between features as well as samples.
+          More generally, since the Cartesian-product is associative, it can be generalized to model higher-dimensional GRFs.
+          Note that here we do not include self-edges (zeros on the diagonals).
+          Based on figures created by David Eppstein, \url{http://en.wikipedia.org/wiki/Graph_product}.
+        }
+      \end{figure}
+    
+      \paragraph{Enhanced Sparsity}
+      For a matrix density $\lambda \in [0,1]$ of both precision matrices the Kronecker-sum has $\mathcal{O}(\lambda n p (n+p))$ non-zeros, whereas the Kronecker-product has $\mathcal{O}(\lambda n^2 p^2)$ non-zeros.
+
+      \paragraph{Better Information Transfer}
+      Kronecker product forms have a known weakness, referred to in the Gaussian process (GP) literature as the cancellation of \emph{inter-task transfer}: {\color{black} \citet[\S2.3]{Bonilla:multitask08} showed that the predictive mean of a multi-output GP with a noise-free Kronecker-product covariance\footnote{One factor for inter-task one for inter-point covariances.} and the same inputs conditioned across tasks (a conditioning structure referred to as a \emph{block design}) uncouples the outputs of the different tasks, that is, the posterior factorises and thus the outputs are computed independently.}
+      The key of this proof lies in the factorisable property of the inverse Kronecker-product, $(\bPsi \otimes \bTheta)^{-1} = \bPsi^{-1} \otimes \bTheta^{-1}$.
+      This property does not apply under the presence of additive noise, hence the outputs remain coupled.
+      This result first arose in geostatistics under the name of \emph{autokrigeability} \citep{Wackernagel:Geostats03} and is also discussed for covariance functions by \citet{OHagan:MarkovCovMatrices98}.
+      \citet{Zellner:Seemingly62}, \citet{Binkley:note88} pointed out how the consideration of the correlation between regression equations leads to a gain in efficiency.
+
+       In a similar vein from econometrics, are models of \emph{seemingly unrelated regressions} \citep[SUR,][]{Zellner:Seemingly62}, a form of \emph{general} least squares that allows for a different set of regressors for each response.
+       The problem reduces to \emph{ordinary} least squares (OLS) when the same covariates are used across the outputs (block design).
+    With a block design, OLS would pass on a potential gain in efficiency by disregarding correlations between responses.
+    Nonetheless, the distribution of the maximum-likelihood estimators does not factorize, regardless of conditioning design.
+    In contrast to SUR, a block design on a multi-output GP with a noise-free Kronecker-product covariance induces the stronger effect of conditional independence over the outputs.
+    These two factorisations are very different and in general do not coincide.
+        
+    The same property that allows for a simple flip-flop approach also negates the merit of exploiting any correlations between different outputs, but by coupling them with additive noise to enable inter-task transfer, flip-flop is no longer straightforward.
+    \citet{stegle:efficient11} addressed this issue by adding iid noise to a Kronecker-product covariance --- a \emph{low-rank} factor for confounding effects and a \emph{sparse-inverse} factor for inter-sample dependencies --- and exploiting identities of the $\textrm{vec(.)}$ notation for efficient computation within the matrix-normal model.
+
+    To summarize our contributions, contrary to existing approaches that use the Kronecker-product structure, the Kronecker-sum \emph{preserves} the inter-task transfer.
+    %\citet{Zellner:Seemingly62}, \citet{Binkley:note88} pointed out how the consideration of the correlation between regression equations leads to a gain in efficiency.
+    Our algorithm maintains the simplicity of the flip-flop with a simple trick of transposing the matrix-variate (samples become features and vice versa).
+    At the same time, the induced Cartesian factorization of graphs provides a more parsimonious interpretation of the induced Markov network.
+
+    The rest of this chapter is structured as follows. We describe the matrix-normal model with the Kronecker-sum inverse-covariance in \S \ref{sec:chap6_model}.
+    In \S \ref{sec:chap6_algorithm}, we present the BiGLasso algorithm for learning the parameters of the Kronecker-sum inverse-covariance.
+    We present some simulations in comparison to a recent Kronecker-normal model of \citet[SMGM,][]{Leng:Sparse12} in \S \ref{sec:chap6_simulations} and an application to an example from the COIL dataset in \S \ref{sec:chap6_coildata}.
+    We conclude in \S \ref{sec:chap6_conclusion}.
+    
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Matrix-normal with the Kronecker-sum structure} \label{sec:chap6_model}
+  
+    {\color{black} To motivate our model, consider the case where matrix-variate data $\mb{Y}$ are sampled iid from a matrix-normal distribution (matrix-Gaussian).
+    This is a natural generalisation of the Gaussian distribution towards tensor support\footnote{A vector is an order-1 tensor, a matrix is an order-2 tensor and so on.}. This distribution can be reparametrized such that the support is over vectorised representations of random matrices, }
+    \begin{equation*}
+      \textrm{vec}(\mb{Y}) \sim \Normal{\mb{0}}{\bPsi^{-1}_n \otimes \bTheta^{-1}_p}.
+    \end{equation*}
+    
+    \paragraph{The Kronecker-product-based SMGM}
+    Under the assumption that $\bPsi_n \otimes \bTheta_p$ is sparse, the SMGM estimator (Sparse Matrix Graphical Model) of \citet{Leng:Sparse12} for the precision matrices $\bPsi_n, \bTheta_p$ can be computed iteratively by minimizing a flip-flop extension of GLasso for Kronecker-product matrix-normals using the $\ell_1$ penalty:
+    \begin{equation}\label{equ:chap6_SMGM_problem}
+      \begin{split}
+      &\underset{\bTheta_p, \bPsi_n}{\textrm{min}} \Big\{
+      %&L(\bTheta_p, \bPsi_n) = 
+      \tfrac{1}{Nnp} \sum_{i=1}^{N} \tr{\mb{Y}_i \bTheta_p \mb{Y}^\top_i \bPsi_n} -
+      \tfrac{1}{n} \log \verts{\bPsi_n} - \tfrac{1}{p} \log \verts{\bTheta_p} + \lambda_1 || \bPsi_n ||_1  + \lambda_2 || \bTheta_p ||_1 \Big\},
+      \end{split}
+    \end{equation}
+    where $\mb{Y}_i$ is the $i$-th matrix sample, $N$ is the sample size and $\lambda_1, \lambda_2$ the regularization parameters.
+    Minimisation proceeds by fixing one of the precision matrices (say, the columns-precision matrix $\bTheta_p$), thus reducing the above to a GLasso problem on $\bPsi_n$ with a projected covariance ($\sum_{i} \mb{Y}_i \bTheta_p \mb{Y}^\top_i$).
+    Similarly, another GLasso step fits the the columns-precision matrix $\bTheta_p$ with a fixed rows-precision $\bPsi_n$.
+    Note that each GLasso step involves an additional $\mathcal{O}(N)$ term as the summation depends on a new estimate.
+
+    \paragraph{The Kronecker-sum-based BiGLasso}
+    Let $\mb{Y} \in \Realspace^{n \times p}$  be a random matrix.
+    If its rows are generated as iid samples from $\Normal{\mb{0}}{ \bSigma_p}$, then the sampling distribution of the sufficient statistic $\mb{Y}^{\top}\mb{Y}$ is $Wishart (n, \bSigma_p)$ with $n$ degrees of freedom and scale matrix $\bSigma_p$.
+    Similarly, if the columns are generated as iid samples from $\Normal{\mb{0}}{ \bGamma_n}$, then the sampling distribution is $Wishart(p, \bGamma_n)$.
+    
+    From a \emph{maximum entropy} point of view we can constraint these second-order moments in a model both for the features and the datapoints of a design matrix.
+    One way to do so, is to combine these sufficient statistics in a model for the entire matrix $\mb{Y}$ as
+    \begin{equation*}
+      p(\mb{Y}) ~ \propto ~ \expo{ -\tr{\bPsi_n \mb{Y}\mb{Y}^\top} -\tr{\bTheta_p \mb{Y}^\top\mb{Y}}} ~,
+    \end{equation*}
+    where $\bPsi_n \in \Realspace^{n \times n}$ and $\bTheta_p \in \Realspace^{p \times p}$ are positive definite matrices.
+    This is equivalent to a joint factorized Gaussian distribution
+    %(see \S3 in supplementary material)
+    (see eq. \eqref{equ:app1_Gaussian_product} in the appendix)
+    for the $n \times p$ entries of $\mb{Y}$, with a precision matrix of the form
+    \begin{equation*}
+      \bOmega ~\triangleq~ \bPsi_n \oplus \bTheta_p ~=~ \bPsi_n \otimes \mb{I}_p + \mb{I}_n \otimes \bTheta_p ~,
+    \end{equation*}
+    where $\otimes$ is the \emph{Kronecker-product} and $\oplus$ the \emph{Kronecker-sum} operator.
+    Thus,
+    \begin{equation*}
+      \omega_{ij, kl} ~=~ \psi_{i,k} \delta_{j,l} + \delta_{i,k} \theta_{j,l} ~,
+    \end{equation*}
+    for ~$i,k \in \{1,\dots,n\}$~ and ~$j, l \in \{1,\dots,p\}$.
+    As an immediate benefit of this parameterization, while the full covariance matrix has $\mathcal{O}(n^2 p^2)$ entries, these are governed in our model by only $\mathcal{O}(n^2 + p^2)$ parameters.
+    
+    Given data in the form of some design matrix $\mb{Y}$, the BiGLasso estimates sparse matrices by putting $\ell_1$ penalties on $\bTheta_p$ and $\bPsi_n$.
+    The convex optimization problem is
+    \begin{equation} \label{equ:chap6_biglasso_problem}
+      \begin{split}
+        \underset{\bTheta_p, \bPsi_n}{\textrm{min}} \Big\{  n~\tr{\bTheta_p \mb{S}} + p~\tr{\bPsi_n \mb{T}} - \ln \verts{\bPsi_n \oplus \bTheta_p} + \lambda \norm{\bTheta_p}_1 + \gamma \norm{\bPsi_n}_1 \Big\}~,
+      \end{split}
+    \end{equation}
+    \begin{equation}
+      \label{equ:empiricalCovs} \textrm{where} \quad \mb{S} \triangleq \tfrac{1}{n}\mb{Y}^\top\mb{Y} \quad \textrm{and} \quad \mb{T} \triangleq \tfrac{1}{p}\mb{Y}\mb{Y}^\top
+    \end{equation}
+%    \begin{equation}
+%      \label{equ:empiricalT} \mb{T} \triangleq \tfrac{1}{p}\mb{Y}\mb{Y}^\top
+%    \end{equation}
+    are empirical covariances across the samples and features respectively.
+    A solution simultaneously estimates two graphs -- one over the columns of $\mb{Y}$, corresponding to the sparsity pattern of $\bTheta_p$, and another over the rows of $\mb{Y}$, corresponding to the sparsity pattern of $\bPsi_n$.
+    Note that \eqref{equ:chap6_biglasso_problem} does not require a summation over the datapoints in each step as was the case in \eqref{equ:chap6_SMGM_problem}.
+    Also note that since $\omega_{ii,jj} = \psi_{ii} + \theta_{jj}$, the diagonals of $\bTheta_p$ and $\bPsi_n$ are not identifiable (though we could restrict the inverses to correlation matrices).
+    However, this does not affect the estimation of the graph \emph{structure} (locations of zeros).
+
+    
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+              
+  \section{A penalized likelihood algorithm for BiGLasso} \label{sec:chap6_algorithm}
+
+    \paragraph{A note on notation} If $\mb{M}$ is an $np \times np$ matrix written in terms of $p \times p$ blocks, as
+    \[
+      \mb{M} = \mat{ \mb{M}_{11} &\dots &\mb{M}_{1n} \\ \vdots &\ddots &\vdots \\ \mb{M}_{n1} &\dots &\mb{M}_{nn} } ~,
+    \]
+    then $\textrm{tr}_p(\mb{M})$ is the $n \times n$ matrix of traces of such blocks\footnote{In a sense, this generalizes the conventional trace operator as $\textrm{tr}_{np}(\mb{M}) = \tr{\mb{M}}$.}:
+    \[
+      \textrm{tr}_p(\mb{M}) = \mat{ \tr{\mb{M}_{11}} &\dots &\tr{\mb{M}_{1n}} \\ \vdots &\ddots &\vdots \\ \tr{\mb{M}_{n1}} &\dots &\tr{\mb{M}_{nn}} } ~.
+    \]
+%    Also,
+%%    \[
+%%      \textrm{diag}_n (\mb{M}_{11}) = \mat{\mb{M}_{11} & & \\ &\ddots & \\ & &\mb{M}_{11}} ~,
+%%    \]
+%    $\textrm{diag}_n (\mb{M}_{11})$ is the $np \times np$ block-diagonal matrix with $n$ copies of $\mb{M}_{11}$ along the diagonal.
+    
+    We alternate between optimizing over $\bPsi_n$ while holding $\bTheta_p$ fixed and optimizing over $\bTheta_p$ while holding $\bPsi_n$ fixed.
+    %The two estimates are symmetric.
+    First we consider the case where there is no regularization. From \eqref{equ:chap6_biglasso_problem}, the first step of the optimization problem is reduced to
+    \begin{equation} \label{equ:chap6_biglasso_minPsi}
+      \underset{\bPsi_n}{\textrm{min}} \Big\{ p~\tr{\bPsi_n \mb{T}} ~-~ \ln \verts{\bPsi_n \oplus \bTheta_p} \Big\} ~.
+    \end{equation}
+    
+    Section \ref{sec:app1_deriv_biglasso} in the supplementary material shows how to take the gradient of \eqref{equ:chap6_biglasso_minPsi} with respect to $\bPsi_n$.
+    Combining
+    \eqref{equ:app1_derivPsi_part1} and \eqref{equ:app1_derivPsi_part2} of the appendix  we obtain the stationary point:
+    \begin{equation*}
+      \mb{T} - \tfrac{1}{2p} \mb{T} \circ \mb{I} = \tfrac{1}{p}\textrm{tr}_p (\mb{W}) - \tfrac{1}{2p}\textrm{tr}_p (\mb{W}) \circ \mb{I} ~,
+    \end{equation*}
+    where we define $\mb{W} \triangleq (\bPsi_n \oplus \bTheta_p)^{-1}$. We partition $\mb{V} \triangleq \frac{1}{p}~\textrm{tr}_p (\mb{W})$ as
+    \begin{equation}
+      \mb{V} = \mat{v_{11} &\mb{v}^\top_{1\sm1} \\ \mb{v}_{1\sm1} & \mb{V}_{\sm1 \sm1}} ~,
+    \end{equation}
+    where $\mb{v}_{1\sm1}$ is a vector of size $n-1$ and $\mb{V}_{\sm 1 \sm 1}$ is a $(n-1) \times (n-1)$ matrix.  Despite the complex form of the stationarity condition, only the lower-left block of its partition will be of use:
+    \begin{align} \label{equ:stationary_point}
+      \nonumber \mb{t}_{1\sm1} &= \tfrac{1}{p}\textrm{tr}_p (\mb{W}_{1\sm1}) = \mb{v}_{1\sm1},
+      ~\textrm{and also from \eqref{equ:empiricalCovs}}, \\ \quad \mb{t}_{1\sm1} &= (t_{21}, \dots,t_{n1})^\top = \tfrac{1}{p}(\mb{y}_2^\top \mb{y}_1,\, \dots, \mb{y}_n^\top \mb{y}_1)^\top .
+    \end{align}
+    Similarly, we partition $\mb{W}$ into blocks:
+    \[
+      \mb{W} = \mat{\mb{W}_{11} &\mb{W}^\top_{1\sm1} \\ \mb{W}_{1\sm1} & \mb{W}_{\sm1 \sm1}}~,
+    \]
+    where $\mb{W}_{11}$ is a $p \times p$ matrix and $\mb{W}_{1\sm1}$ is a $p(n-1) \times p$ matrix. Then from the bottom-left block of
+    \begin{equation} \label{equ:chap6_WOmega}
+      \begin{split}
+      \mb{W}\bOmega = 
+      \mat{ \mb{W}_{11}	&\mb{W}^\top_{1\sm1} \\ \mb{W}_{1\sm1} & \mb{W}_{\sm1 \sm1} }
+      \mat{ 	\psi_{11}\mb{I}_p + \bTheta_p 	&\dots 	&\psi_{in}\mb{I}_p \\
+    		\vdots 				&\ddots 	&\vdots 		\\
+    		\psi_{n1}\mb{I}_p			&\dots	&\psi_{nn}\mb{I}_p + \bTheta_p } 
+        = \mb{I}_{n} \otimes \mb{I}_p ~,
+      \end{split}
+    \end{equation}
+    we get
+    \begin{equation*}
+      \nonumber \mb{W}_{1\sm1} (\psi_{11}\mb{I}_p + \bTheta_p) + \mb{W}_{\sm1\sm1} (\bpsi_{1\sm1} \otimes \mb{I}_p) = \mb{0}_{n-1} \otimes \mb{I}_p
+    \end{equation*}
+    \begin{equation} \label{equ:W1_not1}
+      \mb{W}_{1\sm1} + \mb{W}_{\sm1\sm1}\mat{ (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \psi_{21} \\ \vdots \\ (\psi_{11}\mb{I}_p + \bTheta_p)^{-1}\psi_{n1}} = \mb{0}_{n-1} \otimes \mb{I}_p
+%        \mb{W}_{1\sm1} + \mb{W}_{\sm1\sm1} ~\textrm{diag}_{n-1} \left\{ (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \right\} (\bpsi_{1\sm1} \otimes \mb{I}_p)  &= \mb{0}_{n-1} \otimes \mb{I}_p ~,\\
+    \end{equation}
+    \begin{equation}
+      \begin{split}
+        \nonumber \mb{W}_{1\sm1} ~+~ &\mb{W}_{2\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \psi_{21} ~+\dots~\\
+        ~\dots+~  &\mb{W}_{n\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \psi_{n1} = \mb{0}_{n-1} \otimes \mb{I}_p ~,
+      \end{split}
+    \end{equation}
+    with $\mb{0}_{n-1}$  as the vector of $n-1$ zeros. According to the stationary point in \eqref{equ:stationary_point}, taking the blockwise trace $\textrm{tr}_p(.)$ of both sides, gives the equation:
+    \begin{equation*}
+      p ~ \mb{t}_{1\sm1} + \mb{A}_{\sm 1 \sm1} \bpsi_{1\sm1} = \mb{0}_{n-1},\quad \textrm{where}\\
+    \end{equation*}
+%    \begin{equation*}
+%      p ~ \mb{t}_{1\sm1} + \textrm{tr}_p \left\{ \mb{W}_{2\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \psi_{12} + \dots + \mb{W}_{n\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \psi_{1n} \right\} = \mb{0}
+%    \end{equation*}
+    \begin{equation}
+      \mb{A}^\top_{\sm 1 \sm1} \triangleq \mat{ \textrm{tr}_p \left\{ \mb{W}_{2\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \right\}^\top \\ \vdots \\ \textrm{tr}_p \left\{ \mb{W}_{n\sm1} (\psi_{11}\mb{I}_p + \bTheta_p)^{-1} \right\}^\top }.
+    \end{equation}
+    
+    By imposing an $\ell_1$ penalty on $\bpsi_{1\sm1}$, this problem reduces to a Lasso regression.
+    
+    After estimating $\psi_{1\sm1}$, we compute $\mb{W}_{1\sm1}$ by substituting into \eqref{equ:W1_not1}.
+    It remains to compute $\mb{W}_{11}$. This follows from \eqref{equ:chap6_WOmega}, which gives
+    \[
+      \mb{W}_{11} = (\mb{I} - \mb{W}_{1\sm1}^\top (\bpsi_{1\sm1} \otimes \mb{I})) (\psi_{11}\mb{I} + \bTheta_p)^{-1} ~.
+    \]
+    This algorithm iteratively estimates columns of $\bPsi_n$ and $\mb{W}$ in this manner.
+    The procedure for estimating $\bTheta_p$, for fixed $\bPsi_n$, becomes directly parallel to the above simply by \emph{transposing} the design matrix (samples become features and vice-versa) and applying the algorithm.
+    Algorithm \ref{alg:chap6_biglasso} outlines the BiGLasso.
+    
+    \begin{algorithm}[!htbp] 
+      \caption{BiGLasso} 
+      \begin{algorithmic} \label{alg:chap6_biglasso}
+        \STATE \textbf{Input:} $\mb{Y}, \lambda, \gamma$ and initial estimates of $\bPsi_n$ and $\bTheta_p$
+        % \STATE Compute empirical covariances:\\
+        % \STATE $\mb{S} \leftarrow n^{-1}\mb{Y}^\top\mb{Y}$
+        \STATE $\mb{T} \leftarrow p^{-1}\mb{Y}\mb{Y}^\top$
+        \REPEAT
+          \STATE \# \emph{Estimate $\bPsi_n$}~:
+          \FOR{$i = 1\dots n$}
+            \STATE Partition $\bPsi_n$ into $\psi_{ii}, \bpsi_{i \sm i}$ and $\bPsi_{\sm i \sm i}$.
+            \STATE Find a sparse solution of $~ p ~ \mb{t}_{i \sm i} + \mb{A}_{\sm i \sm i} \bpsi_{i \sm i} = \mb{0}_{n-1}$ with \emph{Lasso} regression.
+            \STATE Substitute $\bpsi_{i \sm i}$ into \eqref{equ:W1_not1} to compute $\mb{W}_{i \sm i}$.
+            \STATE $\mb{W}_{ii} \leftarrow \left( \mb{I} - \mb{W}_{i \sm i}^\top (\bpsi_{i \sm i} \otimes \mb{I}) \right) (\psi_{ii}\mb{I} + \bTheta_p)^{-1}$
+          \ENDFOR
+          \STATE \# \emph{Estimate $\bTheta_p$}~:
+          \STATE Proceed as if estimating $\bPsi_n$ with input $\mb{Y}^\top, \lambda, \gamma$.
+        \UNTIL{\eqref{equ:chap6_biglasso_problem} converges or maximum iterations reached.}
+      \end{algorithmic}
+    \end{algorithm}
+    In our experiments we treat $\lambda$ and $\gamma$ as the same parameter and the precision matrices $\bPsi_n$ and $\bTheta_p$ are initialized as identity matrices. The empirical mean matrix is removed from each dataset.
+        
+    
+%    {\color{red} For the complex but faster alternative, present an algorithm for $\bTheta$.} The equivalent of eq.~\eqref{equ:chap6_biglasso_minPsi} is now
+%    \begin{equation}\label{equ:chap6_biglasso_minTheta}
+%      \underset{\bTheta_p}{\textrm{min}} \Big\{ p~\tr{\mb{S} \bTheta_p} ~-~ \ln \verts{\bPsi_n \oplus \bTheta_p} \Big\} ~.
+%    \end{equation}
+%    
+%    Appendix \ref{sec:app1_deriv_biglasso} shows how to take the gradient of eq.~\eqref{equ:chap6_biglasso_minTheta} with respect to $\bTheta_n$. Combining \eqref{equ:app1_derivTheta_part1} and \eqref{equ:app1_derivTheta_part2} we obtain the stationary point:
+%    \begin{equation*} \label{equ:chap6_stationary_point2}
+%      \mb{S} - \tfrac{1}{2n} \mb{S} \circ \mb{I} = \sum^{n}_{k=1} \left\{ \tfrac{1}{n} \mb{W}_{\mb{k}\mb{k}} - \tfrac{1}{2n} \mb{W}_{\mb{k}\mb{k}} \circ \mb{I} \right\} ~.
+%    \end{equation*}
+%    Again, the bottom-left block of its partition is 
+    
+  
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  
+  \section{Simulations} \label{sec:chap6_simulations}
+  
+    \begin{figure*}[ht]
+      \centering
+      \subfigure{
+	\includegraphics[width=.8\linewidth]{RecallPrecision_BiGLasso_VS_SMGM_on_KronSumData}
+      }
+      \caption[BiGLasso vs. SMGM on data generated from KS structures.]{ \label{fig:BiGLassoVsSMGM_onKSdata}
+	Simulation results on data generated from Kronecker-sum structures. Each box shows a recall-precision plot for a particular setup (shown along the top and right margin). Structure recovery can be exact, as the sample size increases for the A3/A3 combination (most right column).
+      }
+    \end{figure*}
+    
+    \begin{figure*}[ht]
+      \centering
+      \subfigure{
+	\includegraphics[width=.8\linewidth]{RecallPrecision_BiGLasso_VS_SMGM_on_KronProdData}
+      }
+      \caption[BiGLasso vs. SMGM on data generated from KP structures.]{ \label{fig:BiGLassoVsSMGM_onKPdata}
+	Simulation results on data generated from Kronecker-product structures.
+	%Recovery can be exact for the SMGM for combination A1/A1 and BiGLasso is more balanced for denser structures.
+	%Again, for combinations involving A3, larger sample sizes benefit BiGLasso more.
+      }
+    \end{figure*}
+    
+    To empirically assess the efficiency of BiGLasso, we generate the datasets described below from centered Gaussians with Kronecker-product \textbf{(KP)} and Kronecker-sum \textbf{(KS)} precision matrices.
+    We run the BiGLasso and SMGM
+    %(Sparse Matrix Graphical Model) of \citet{Leng:Sparse12}, a flip-flop extension of GLasso for Kronecker-product matrix-normals
+    using the $\ell_1$ penalty.
+    %More precisely, one iteration of SMGM consists of a GLasso iteration for fitting the rows-precision matrix with a fixed column-precision and another GLasso iteration for fitting the columns-precision matrix with a fixed rows-precision.
+    The $\bTheta_p$ and $\bPsi_n$ precision matrices in both cases are generated in accordance to \citep[\S 4,][]{Leng:Sparse12}; namely, as either of the following $d \times d$ blocks ($d$ being either $p$ or $n$) of increasing density:
+    \begin{enumerate}
+      \item $\mb{A}_1$: Inverse AR(1) (auto-regressive process) such that $\mb{A}_1 = \mb{B}^{-1}$ with $B_{ij} = 0.7^{|i-j|}$.
+    %\end{enumerate}
+    %\begin{enumerate}
+      \item[2.] $\mb{A}_2$: AR(4) with $A_{ij} = I(|i-j|=0) ~+~ 0.4I(|i-j|=1) ~+~ 0.2I(|i-j|=2) ~+~ 0.2I(|i-j|=3) ~+~ 0.1I(|i-j|=4)$, $I(.)$ being the indicator function.
+    %\end{enumerate}
+    %\begin{enumerate}
+      \item[3.] $\mb{A}_3 = \mb{B} + \delta\mb{I}$, where for each $B_{ij} = B_{ji}, i\neq j$,  $P(B_{ij}=0.5) = 0.9$ and $P(B_{ij}=0) = 0.1$.
+      The diagonal is zero and $\delta$ is chosen such that the condition number of $\mb{A}_3$ is d.
+      Since the condition number is $k(\mb{A}_3) = d = \frac{\lambda_1 + \delta}{\lambda_d + \delta}$, the ratio of largest-to-smallest eigenvalue, then $\delta = \frac{d \lambda_d - \lambda_1}{1 - d}$.
+    \end{enumerate}
+  
+    Figures \ref{fig:BiGLassoVsSMGM_onKSdata} and \ref{fig:BiGLassoVsSMGM_onKPdata} show the \emph{recall} $=\frac{\# \{ \widehat{\Omega}_{ij} \neq 0 ~\&~ \Omega_{ij} \neq 0\}}{\# \{ \Omega_{ij} \neq 0 \}}$ (or \textit{true-positive rate}) and \emph{precision} $ = \frac{\# \{ \widehat{\Omega}_{ij} = 0 ~\&~ \Omega_{ij} = 0\}}{\# \{ \widehat{\Omega}_{ij} = 0 ~\&~ \Omega_{ij} = 0\} + \# \{ \widehat{\Omega}_{ij} = 0 ~\&~ \Omega_{ij} = 1\}}$ across 50 replications to assess the $\widehat{\bOmega}$ estimates under various setups.
+    %\footnote{An intuitive way of thinking about recall and precision are the following two questions:
+    %Recall=``How many of the true edges did I find?''; Precision=``Of the edges that I found, how many are true?'';}.
+
+    Each box shows a particular setup that varies in block combination ($\mb{A}_1,\mb{A}_2,\mb{A}_3$), in block sizes ($n,p$), in sample size N generated from the matrix-normal and by the structure used (KS or KP) to generate the sample. Each curve in a box is the solution-path of a replication in precision-recall space for a range of regularization settings $\lambda = 5^x$, for $x \in [-6,-2]$ interpolated 10 times.
+    The blocks are arranged such that the overall density of the structured precision matrices increases from left to right.
+    
+    We note that since blocks A1,A2 have a fixed form, for such combinations each curve is a different sample from the same graph structure.
+    Only A3 is random so in combinations involving A3, each box has a different random A3 and consequently generates a set of 50 replicates from a different graph.
+    At a glance this has little effect.
+    %as most of the curves are not too spread and amounts to sampling from a joint distribution over A3-structures and data where the A3-structure is marginalized out.
+    
+    Figures \ref{fig:BiGLassoVsSMGM_onKSdata} and \ref{fig:BiGLassoVsSMGM_onKPdata} also compare against the results of SMGM (using the Lasso penalty) on data simulated from the matrix-normal with KS structures.
+    \citet{Leng:Sparse12} had also ran comparisons against the MLE method of \citet{Dutilleul:MLE99} (an unpenalized variant of SMGM), ridge-SMGM (SMGM with an $\ell_2$ penalty instead of $\ell_1$) and the GLasso of \citet{Friedman:sparse08} (on vectorized samples from $\Normal{\mb{0}}{ \bPsi_n \otimes \bTheta_p}$, i.e. ignoring the matrix structure).
+    They consistently outperformed all of these methods, so for brevity we compare only against the SMGM.
+    Similarly, Figure \ref{fig:BiGLassoVsSMGM_onKPdata} visualizes the simulations under KP structures.
+    
+    By the empirical distributions of these solution-paths (50 for each model in each box), it is no surprise that the intrinsically denser SMGM tends to have low precision (many false-positives) for smaller values of $\lambda$.
+    On the contrary, BiGLasso tends to have low recall (many false-negatives) due to its intrinsically sparser structure.
+
+    Block A3 is the only randomized sparse structure whereas A1 and A2 are more ``artificial'' as they respectively model an inverse-AR(1) and AR(4) and they yield banded precision matrices.
+    Of interest is the observation that the largest effect of the increase in sample size $(10 \rightarrow 100)$ seems to occur on the A3/A3 combination (right end column of boxes).
+    More precisely in Figure \ref{fig:BiGLassoVsSMGM_onKSdata}, we note the difference from box (1,6) to (2,6) and from (3,6) to (4,6). The sample size is very effective: with sufficiently large sample size N, BiGLasso starts to recover exactly and SMGM occupies lower regions in general.
+    
+    In Figure \ref{fig:BiGLassoVsSMGM_onKPdata}, since the data generation process uses Kronecker-product structures, the SMGM is expected to outperform our method.
+    Indeed for lower-density structure, the recovery rate of the SMGM seems consistently better than BiGLasso.
+    and recovery can be almost exact for the SMGM for combination A1/A1.
+    However, as the overall density increases, the performance of BiGLasso is balanced.
+    Again, for combinations involving A3, larger sample sizes benefit BiGLasso more.
+    
+    In summary, KP-simulated data proved harder to tackle for both methods than KS-generated data.
+    These simulations have shown that the BigLasso consistently outperforms the SMGM on KS-simulations, with the possibility of exact recovery on large sample sizes.
+    On KP-simulations the comparison is less clear, but the BiGLasso proves more practical for denser Kronecker-product structures and the SMGM more practical for sparser structures.
+  
+    
+    %The authors used the $\textrm{TPR}=\frac{\# \{ \widehat{\Omega}_{ij} \neq 0 ~\&~ \Omega_{ij} \neq 0\}}{\# \{ \Omega_{ij} \neq 0 \}}$ (true-positive rate) and $\textrm{TNR}=\frac{\# \{ \widehat{\Omega}_{ij} = 0 ~\&~ \Omega_{ij} = 0\}}{\# \{ \Omega_{ij} = 0 \}}$ (true-negative rate) to assess the $\widehat{\bOmega}$ estimates.
+    %Tables \ref{table:BiGLassoVsSMGM_KP} and \ref{table:BiGLassoVsSMGM_KS} list the TPR and TNR metrics for various block combinations and sample size N from the matrix-normal with KP and KS structures respectively. Rates "1.0" and "1" denote "100\%" with rounding and without, respectively.
+    %All numbers are rounded to 2 decimal places except "1" which denotes exact  recovery.
+    %The highest TPR or TNR number of the two methods is emboldened in each setup, unless they overlap within their standard errors.
+    %Each setup is replicated 50 times.
+    %To tune the regularization parameter, we also generate a testing dataset (a single replication) of equal size to the training dataset and choose the setting that yields the highest TPR $\times$ TPR product.
+    %The empirical mean matrix is removed from each dataset.
+    
+%    \begin{table}[!htbp]
+%      \begin{tabular}{cccccccccc}
+%        \hline \hline \\[-3mm]
+%        ~  & ~  & ~  & ~ & ~ & \multicolumn{2}{c}{SMGM (Lasso)}  & ~ & \multicolumn{2}{c}{BiGLasso} \\
+%        \cline{6-7} \cline{9-10} \\[-3mm]
+%        N & n  & p  & $\bPsi_n$ & $\bTheta_p$	& TPR		& TNR 	& ~ 	& TPR		& TNR		\\
+%        \hline \\[-3mm]
+%        10 &10 &10 & $\mb{A}_1$ &$\mb{A}_1$	&1(0)         	& 0.82(0.03) &~ 	& 1.00(0.00) 	&\textbf{0.86(0.00)} 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	&0.70(0.11) 	&0.76(0.07) &~ 	& \textbf{0.98(0.04)}  	&0.75(0.01) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	&0.53(0.16) 	& 0.69(0.16) &~ 	& \textbf{0.97(0.06)}  	&0.68(0.02)\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	&\textbf{1(0)} 		& 0.78(0.05) &~ 	& 0.77(0.11)  	&0.82(0.08) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	&0.75(0.11) 	& 0.77(0.10) &~ 	& 0.81(0.13)  	&0.73(0.09) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	&1(0) 		& 0.88(0.04) &~ 	& 0.98(0.05)  	&\textbf{0.96(0.04)} 	\\
+%        \\[-3mm]
+%        100&10&10 & $\mb{A}_1$ &$\mb{A}_1$	&1(0)         	& 0.66(0.08) &~ 	& 1(0)  	&\textbf{0.87(0.00)} 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	&1.0(0.01) 	& 0.38(0.11) &~ 	& 0.99(0.03)  	&\textbf{0.75(0.01)} 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	&1.0(0) 	& 0.16(0.06) &~ 	& 0.98(0.05)  	&\textbf{0.68(0.02)} 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	&\textbf{1(0)} 		& 0.77(0.08) &~ 	& 0.8(0.04)  	&\textbf{0.94(0.04)} 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	&\textbf{1(0)} 		& 0.38(0.09) &~ 	& 0.74(0.1)  	&\textbf{0.87(0.06)} 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	&1(0) 		& 0.78(0.07) &~ 	& 1(0)  		&\textbf{0.99(0.00)} 	\\
+%        \\[-3mm]
+%        10&20  &20 & $\mb{A}_1$ &$\mb{A}_1$	&1(0)         	& \textbf{0.93(0.01)} &~ 	& 1(0.00)  		&0.91(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	&0.72(0.07) 	& \textbf{0.86(0.03)} &~ 	& \textbf{0.97(0.03)}  	&0.64(0.01) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	&0.51(0.11) 	& \textbf{0.79(0.07)} &~ 	& \textbf{0.92(0.08)}  	&0.6(0.04) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	&\textbf{1(0)} 		& \textbf{0.91(0.02)} &~ 	& 0.78(0.09)  	&0.76(0.06) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	&0.90(0.06)	& 0.80(0.04) &~ 	& 0.78(0.09)  	&0.78(0.08) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	&1(0) 		& 0.92(0.02) &~ 	& 0.97(0.04)	&0.94(0.03) 	\\
+%        \\[-3mm]
+%        100&20&20 & $\mb{A}_1$ &$\mb{A}_1$	&1(0)         	& 0.83(0.02) &~ 	& 1.00(0.00)  	&\textbf{0.91(0.00)} 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	&1.00(0) 	& 0.6(0.04) &~ 	& 0.95(0.06)  	&0.66(0.04) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	&\textbf{1(0)} 		& 0.36(0.03) &~ 	& 0.81(0.08)  	&\textbf{0.72(0.07)} 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	&\textbf{1(0)} 		& 0.78(0.03) &~ 	& 0.81(0.05)  	&0.82(0.03) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	&\textbf{1.00(0)}	& 0.49(0.05) &~ 	& 0.80(0.07)  	&\textbf{0.81(0.06)} 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	&1(0) 		& 0.90(0.03) &~ 	& 1.00(0.01)		&\textbf{0.96(0.00)} 	
+%    \end{tabular}
+%      \caption[BiGLasso vs. SMGM on data generated with the KP structure.]{Simulation results on data generated with the KP structure. Sample standard errors are in parentheses.}
+%      \label{table:BiGLassoVsSMGM_KP}
+%    \end{table}
+%
+%    \begin{table}[!htbp]
+%      \begin{tabular}{cccccccccc}
+%        \hline \hline \\[-3mm]
+%        ~  & ~  & ~  & ~ & ~ & \multicolumn{2}{c}{SMGM (Lasso)}  & ~ & \multicolumn{2}{c}{BiGLasso} \\
+%        \cline{6-7} \cline{9-10} \\[-3mm]
+%        N & n  & p  & $\bPsi_n$ & $\bTheta_p$	& TPR		& TNR 	& ~ 	& TPR			& TNR		\\
+%        \hline \\[-3mm]
+%        10 &10 &10 & $\mb{A}_1$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&0.99(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.97(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	& --- 	& --- &~ 	& 0.99(0.02) 	&0.95(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	& --- 	& --- &~ 	& 0.98(0.03) 	&0.94(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	& --- 	& --- &~ 	& 0.97(0.08) 	&0.98(0.01) 	\\
+%        \\[-3mm]
+%        100&10&10 & $\mb{A}_1$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1(0) 	&0.99(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	& --- 	& --- &~ 	& 0.99(0.01) 	&0.97(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.96(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	& --- 	& --- &~ 	& 0.99(0.04) 	&0.95(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	& --- 	& --- &~ 	& 1(0) 	&1.00(0.00) 	\\
+%        \\[-3mm]
+%        10&20  &20 & $\mb{A}_1$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&1.00(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.97(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	& --- 	& --- &~ 	& 0.99(0.01) 	&0.96(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	& --- 	& --- &~ 	& 0.98(0.03) 	&0.98(0.01) 	\\
+%        \\[-3mm]
+%        100&20&20 & $\mb{A}_1$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&1.00(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.00) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_2$ &$\mb{A}_2$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.97(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_1$	& --- 	& --- &~ 	& 1.00(0.01) 	&0.98(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_2$	& --- 	& --- &~ 	& 0.99(0.01) 	&0.96(0.00) 	\\
+%        ~  &~  &~   & $\mb{A}_3$ &$\mb{A}_3$	& --- 	& --- &~ 	& 0.99(0.02) 	&1.00(0.00) 	\\
+%    \end{tabular}
+%      \caption[BiGLasso vs. SMGM on data generated with the KS structure.]{Simulation results on data generated with the KS structure. Sample standard errors are in parentheses. Structure recovery with the BiGLasso is near-perfect with very small bounds.}
+%      \label{table:BiGLassoVsSMGM_KS}
+%    \end{table}
+%    
+%    In Table \ref{table:BiGLassoVsSMGM_KP}, the data generation process uses a Kronecker-product structure, so the SMGM is expected to outperform our method.
+%    Regardless, for such low-scale simulations the recovery rate of the Kronecker-sum of BiGLasso is at least on par with the Kronecker-product of SMGM.
+%    .
+    
+    
+    
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+    
+  \section{An example from the COIL dataset} \label{sec:chap6_coildata}
+
+
+    In this section we perform a minor video analysis of a rotating rubber duck from the COIL dataset\footnote{\url{http://www.cs.columbia.edu/CAVE/software/softlib/coil-20.php}}.
+    The video consists of gray-scaled images, see Figure \ref{fig:rotating_duck}.
+    \begin{figure}[!htbp]
+      \centering
+      \subfigure{ \shortstack{
+        \includegraphics[width=.08\linewidth]{obj1__0} 
+        \includegraphics[width=.08\linewidth]{obj1__10}
+        \includegraphics[width=.08\linewidth]{obj1__20}
+        \includegraphics[width=.08\linewidth]{obj1__30}
+        \includegraphics[width=.08\linewidth]{obj1__40}
+        \includegraphics[width=.08\linewidth]{obj1__50}
+        \includegraphics[width=.08\linewidth]{obj1__60}
+        \vspace{-.3cm} \\
+        \includegraphics[width=.08\linewidth]{obj1__0_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__10_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__20_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__30_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__40_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__50_lowres} \hspace{-.0cm}
+        \includegraphics[width=.08\linewidth]{obj1__60_lowres}
+      }} \quad
+      \caption[Video of a rotating rubber duck.]{ \label{fig:rotating_duck} Video of a rotating rubber duck. Original resolution of $128 \times 128$ pixels (back row) and reduced resolution of $9 \times 9$ pixels (front row).}
+    \end{figure}
+    The goal is on two fronts: to recover the conditional dependency structure over the frames and the structure over the pixels.    
+    For simplicity, we reduced the resolution of each frame and sub-sampled the frames (at a ratio 1:2).
+    After vectorizing the frames (stacking their columns into $81 \times 1$ vectors) and arranging them into a design matrix $\mb{Y}$, the resulting single ``datapoint" that BiGLasso has to learn from is $36\times 81$ (\#frames $\times$ vectorized frame length).
+    Unlike our previous simulations where we had many matrix-samples, here the challenge is to learn from this single matrix $(N = 1)$.
+    
+    Despite the big loss in resolution, the principal component (PCA) subspace of the rotating duck seems to remain smooth, see Figure \ref{fig:duck_manifold}.
+    Being a time-series, the video is expected to resemble a 1D manifold, ``homeomorphic" to the one recovered by PCA shown in figure \ref{fig:duck_manifold}, so we applied the BiGLasso on the reduced images.
+    \begin{figure}[ht]
+      \centering
+      \subfigure{
+        \includegraphics[width=.4\linewidth]{coil_duck_manifold3}
+      }\\
+      \caption[1D manifold of the rotating duck in 3D space, recovered by PCA.]{ \label{fig:duck_manifold}
+	1D manifold of the rotating duck in 3D space, recovered by PCA and projecting onto the 3 principal eigenvectors {\color{black}of $\mb{Y}^\top\mb{Y}$.
+	The black curve serves as a shadow to aid perspective.
+	Note that the blue line is drawn only by knowledge of the frame ordering and PCA is responsible solely for the reduced embedding.}
+      }
+    \end{figure}
+    
+    %We also sub-sampled the frames (at a ratio 1:2).
+    %After vectorizing the frames (stacking their columns into $81 \times 1$ vectors) and arranging them into a design matrix $\mb{X}$, the resulting single ``datapoint" that BiGLasso has to learn from is $36\times 81$ (\#frames $\times$ vectorized frame length).
+    %Unlike our previous simulations where we had many matrix-samples, here the challenge is to learn from this single matrix $(N = 1)$.
+    %The result is in Figure 4: left is the precision across frames, right is across pixels (that pattern intrigues me, if you look carefully it is kind of circular).
+    
+    Indeed, the left panel of figure \ref{fig:frameNet_pixNet} shows the row-precision parameter of BiGLasso capturing a \emph{manifold-like} structure where the first and last frames join, as expected of a $360^{\circ}$ rotation.
+    The model recovered the temporal manifold structure, or in other words, we could use it to \emph{connect the dots} in Figure \ref{fig:duck_manifold} in case the true order of the frames was unknown (or randomly given to us).
+    
+    The right panel of Figure \ref{fig:frameNet_pixNet} shows the conditional dependency structure over the pixels.
+    This figure shows strong dependencies at intervals of 9 --- {\color{black} that is, roughly in line with} the size of a frame (due to the column-wise ordering of the pixels).
+    This is expected, as neighboring pixels are more likely to be conditionally dependent.
+    \begin{figure}[ht]
+      \centering
+      \subfigure{ 
+        \includegraphics[width=.95\linewidth]{frameNet_pixNet}
+      }
+      \caption[Row and column-precision matrix estimates of BiGLasso.]{ \label{fig:frameNet_pixNet}
+        Row and column-precision matrix estimates of BiGLasso with $\lambda \approx .0009$.
+      }
+    \end{figure}
+    
+    A more intuitive picture of the induced Markov network is shown in Figure \ref{fig:pixNet_visualisation}.
+    A Gaussian graphical model can be {\color{black} naturally} interpreted as a system of springs, where the off-diagonal entries of the inverse-covariance represent the \emph{negative stiffness} of the springs.
+    Therefore by the colorbar, a negative-color represents an {\color{black}``attracting"} spring between those two pixels and a positive-colour represents a ``repulsing" spring.
+    Naturally, in the frames network almost all non-zero elements are negative.
+    
+    \begin{figure}[ht]
+      \centering
+%       \subfigure{ \shortstack{
+%         \includegraphics[width=.05\linewidth]{obj1__0} 
+%         \includegraphics[width=.05\linewidth]{obj1__10}
+%         \includegraphics[width=.05\linewidth]{obj1__20}
+%         \includegraphics[width=.05\linewidth]{obj1__30}
+%         \includegraphics[width=.05\linewidth]{obj1__40}
+%         \includegraphics[width=.05\linewidth]{obj1__50}
+%         \includegraphics[width=.05\linewidth]{obj1__60}
+%         \vspace{-.3cm} \\
+%         \includegraphics[width=.05\linewidth]{obj1__0_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__10_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__20_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__30_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__40_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__50_lowres} \hspace{-.0cm}
+%         \includegraphics[width=.05\linewidth]{obj1__60_lowres}
+%       }} \quad
+%       \subfigure[]{
+%         \includegraphics[width=.2\linewidth]{coil_duck_manifold3}
+%       }\\
+%       \subfigure[]{ \label{fig:frameNet_pixNet}
+%         \includegraphics[width=.68\linewidth]{frameNet_pixNet}
+%       }
+      \subfigure{
+        \includegraphics[width=.5\linewidth]{pixNet_visualisation.jpg}
+      }
+      \caption[The Markov network induced by the column-precision over the pixels.]{ \label{fig:pixNet_visualisation}
+        %\subref{fig:duck_manifold} 1D manifold of the rotating duck in 3D space, recovered by PCA by projecting onto the 3 principal eigenvectors.  Black lines serve as a shadow for perspective.
+        %\subref{fig:frameNet_pixNet} The estimated row and column-precision of BiGLasso with $\lambda \approx .0009$.
+	The Markov network induced by the column-precision over the pixels (superimposed over the first frame for reference of the pixel locations).
+      }
+    \end{figure}
+      
+      
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   
+    
+  \section{Summary} \label{sec:chap6_conclusion}
+    
+    
+    There is a need for models to accommodate the growing complexity of dependency structures. 
+    We are concerned with \emph{conditional} dependencies, as encoded by the inverse-covariance of a matrix-normal density.
+    In high-dimensional cases the Markov network structures induced by a graph could be approximated by factorisations such as the tensor-product (Kronecker-product of precision matrices).
+    In this work, we motivated a novel application of the Cartesian factorization of graphs (Kronecker-sum of precision matrices), as a more parsimonious and interpretable structure for inter-sample and inter-feature conditional dependencies.
+    {\color{black} In the context of multi-output GPs, the Kronecker-product cancels any transfer (that is, ignoring any correlations) between outputs (tasks) when a block design with a noise-free covariance.}
+    This is not the case with the Kronecker-sum due to its additive form.
+    We introduced the bigraphical Lasso, an algorithm for the simultaneous point-estimation of the structures of two Gaussian graphical models: one over the rows of a matrix-sample and the other over its columns.
+    This was demonstrated to good effect through simulations as well as a toy example from the COIL dataset.
+    
+    An obvious extension that would exploit the associativity of the Cartesian product, would be the modeling of datasets organised into 3 or higher-dimensional arrays {\color{black} (amounting to GRFs over higher-order tensors) with dependencies across any subset of the array dimensions.}
+    
+    %{\color{black} [Something about a potential research avenue on Kronecker-sums of kernels for multi-output Gaussian processes.]}
+    One of the appealing features of the Kronecker-sum of precision matrices is the \emph{preservation} of inter-task transfer, thereby leading to potential applications on Kronecker-sums of kernels for multi-output Gaussian processes.
+    
+    Finally we feel that the --- largely unknown to machine learning --- literature on the Cartesian product of graphs deserves a thorough study, towards modeling and algorithmic advances in probabilistic graphical modeling.
+
+  \subsection*{Authors contributions}
+    The chapter is based on a manuscript version written by Alfredo Kalaitzis, along with the literature review and motivations.
+    Experiments were designed and experimental results written by AK.
+    John Lafferty and Neil Lawrence devised the model and JL wrote the initial algorithm for optimising the penalised likelihood. 
+
+% ------------------------------------------------------------------------
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
