@@ -1,0 +1,413 @@
+\chapter[Applications of RCA]{Applications of RCA} \label{chap5:RCAapps}
+\ifpdf
+    \graphicspath{{Chapter5/Chapter5Figs/PNG/}{Chapter5/Chapter5Figs/PDF/}{Chapter5/Chapter5Figs/}}
+\else
+    \graphicspath{{Chapter5/Chapter5Figs/EPS/}{Chapter5/Chapter5Figs/}}
+\fi
+
+  Whereas the previous chapter focused on drawing links; here we aim to show the applicability of the RCA framework.
+  The centerpiece of this chapter is the composite structure of \emph{low-rank plus sparse-inverse} covariance.
+  To motivate this structure, section \ref{sec:chap5_confounders} starts off with a formal description of the problem --- a linear mixed-effects equation, where one effect is hidden and low-dimensional and the other is Gaussian-distributed with a sparse precision --- and slowly introduces the pieces of the composite structure that will help us identify this equation.
+  Section \ref{subsec:chap5_EMRCA} describes our proposed methodology and section \ref{subsec:chap5_experiments} describes a number of experiments across a number of application domains.
+  A second application of RCA on the analysis of residuals of a GP is given in section \ref{sec:chap5_GEdifferences}, that also provides a link to the first chapter of the thesis.
+
+
+  \section{Accounting for confounders in sparse Gaussian Markov random fields} \label{sec:chap5_confounders}
+
+
+    Consider the following \textit{linear mixed-effects} model \citep{Pinheiro:mixed2000} of observed centered covariates $\mb{y} \in \Realspace^{p}$ with two sets of factors $\mb{x} \in \Realspace^{q},~ \mb{z} \in \Realspace^{p}$ and noise $\bepsilon \sim \Normal{\mb{0}}{\sigma^2\mb{I}_p}$~:
+    \begin{equation} \label{equ:chap5_linearmodel}
+      \mb{y} = \mb{W}\mb{x} + \mb{z} + \bepsilon ~,
+    \end{equation}
+    where $\mb{z}$ is a vector of ``\textit{fixed}'' effects either in the form of known, given or estimated covariates postulated to have some predictive power over $\mb{y}$ (in practice they are \emph{unknown}, but eventually they are \emph{fixed} to some estimate to determine the residual components) and $\mb{x}$ is a lower dimensional vector of random effects (in general we assume there are $q < p$ latent variables).
+    The graphical model of this representation is illustrated in Figure \ref{fig:rca}, p.~\pageref{fig:rca}.
+    The focus of this chapter is a particular case of eq.~\eqref{equ:chap5_linearmodel}, in which the ``\textit{fixed}'' covariates $\mb{z}$ are distributed according to a zero-mean Gaussian with a \emph{sparse-inverse} covariance (or sparse precision) matrix.
+    This is a potentially powerful representation for many application domains, as we demonstrate with examples on computational biology, motion-capture and social networks.
+
+    Consider a case where samples $\mb{y}_i \in \Realspace^{p}$ are heterogeneous (for instance, a set of activation signals from $p$ proteins, measured under various external stimuli). In a \emph{primal} representation we aim to recover a sparse network of interactions between the \emph{features} (proteins). The representation of $\mb{y}$ depends on two types of background effects: in $\mb{z}$ there are as many factors as there are observed covariates in $\mb{y}$. The factors in $\mb{z}$ are special in the sense that they share a \emph{sparse} network of \emph{conditional dependencies}. Sparse dependencies are interesting for learning parsimonious models (in this case, a protein regulation network) but in realistic scenarios this sparsity is \emph{confounded} by the heterogeneous experimental conditions (the various stimuli) under which each sample of $\mb{y}$ is generated. In a sense, $\mb{z}$ represents a ``clean", \emph{unconfounded}, version of $\mb{y}$. We encode these \emph{confounders} with the 
+second type of background effects $\mb{x}$. The hypothesis is that, if there are any underlying confounding effects in the data generation process, these are fewer than our observed covariates and the confounders somehow combine in a linear fashion, $\mb{W}\mb{x}$, to affect an observed covariate (protein signal). Then, the structure explained solely by $\mb{x}$ corresponds to a \emph{low-rank} term in the marginal covariance, see the primal version of eq.~(\ref{equ:chap3_marginalY}), p.~\pageref{equ:chap3_marginalY}. Another intuitive way to argue for modeling the confounding structure with a low-rank component, is by seeing how the nominal values of our signals are \emph{forced} to diverge from their otherwise true values: because there are always fewer confounders than observed covariates, there is \emph{redundancy} in their expression on the observed space, thus adding a low-rank structure in the covariance of our measurements.
+
+    Since by assumption the regulatory network is sparse, we parameterise the explained covariance term as:
+    \begin{equation} \label{equ:chap5_SigmaGMRF}
+      \bSigma_{GMRF}\footnote{Using the sub-index notation here as a descriptor.}
+      = \bLambda^{-1} ~,
+    \end{equation}
+    where $\bLambda$ is a \emph{sparse} positive definite matrix, thus recovering a \emph{low-rank plus sparse-inverse} parameterisation of the covariance in eq.~\eqref{equ:chap3_marginalY}, p.~\pageref{equ:chap3_marginalY}. It is well known, that the precision matrix $\bLambda$ of a multivariate Gaussian distribution has elements $\Lambda_{ij}=0$ \emph{if and only if} the variables $i$ and $j$ are independent when conditioned on the rest \citep{Lauritzen:graphical96}.
+    Thereby, a sparse precision induces a sparsely connected \textit{Gaussian Markov random field} (GMRF) or \textit{Gaussian graphical model} of the factors $\mb{z}$, such that each sample $\mb{z}_i$ is distributed according to $\Normal{ \mb{0} }{ \bLambda^{-1} }~$.
+    
+
+    \subsection{Low-rank plus sparse-inverse covariance} \label{subsec:chap5_EMRCA}
+
+      Given a dataset $~\mb{Y} \in \Realspace^{n \times p}$, our goal is to infer the sparse structure of the underlying GMRF, encoded by the sparse-inverse covariance term $\bLambda^{-1}$. If $\mb{y}_i$ is truly sampled from a Gaussian with sparse precision $\bLambda$, then we can efficiently estimate $\bLambda$ with the \textit{graphical-Lasso} algorithm \citep[GLasso,][]{Friedman:sparse08, Banerjee:model2008}. The challenge is to estimate $\bLambda$ \emph{in the presence of low-rank structures} (in the marginal covariance), induced by \emph{confounding} latent variables $~\mb{X} \in \Realspace^{n \times q}$. We show that a low-rank structure leads to \emph{highly correlated} covariates, which in turn increases the number of false edges called by GLasso (on the empirical covariance of $\mb{Y}$). Our approach is to perform GLasso on the sample-covariance of $\mb{Z} \in \Realspace^{n \times p}$, the \emph{unconfounded} version $\mb{Y}$.
+
+      Based on the discussion above, we build the following generative model:
+      \begin{align} \label{equ:chap3_LRSIgenmodel}
+        \begin{split}
+	\mb{y} | \mb{x},\mb{z} ~&\sim~ \Normal{\mb{W}\mb{x} + \mb{z}}{\sigma^2\mb{I}} \\
+	\mb{x} ~&\sim~ \Normal{\mb{0}}{\mb{I}} \\
+	\mb{z} ~&\sim~ \Normal{\mb{0}}{\bLambda^{-1}} \\
+	p(\bLambda) ~&\propto~ \textrm{exp} \left( -\lambda \norm{\mb{\Lambda}}_1 \right) ~,
+        \end{split}
+      \end{align}
+      where $\bLambda$ is sampled from a Laplace distribution (a sparsity promoting prior) and the level of sparsity is driven by the hyperparameter (or regularisation parameter) $\lambda$. Figure \ref{fig:EMRCAgraph} shows the corresponding graphical model. We propose a hybrid approach of EM and RCA to optimise this generative model with respect to the loadings $\mb{W}$ and the sparse GMRF encoded by the precision matrix $\bLambda$.
+      \begin{figure}[!htbp]
+        \centering
+        \includegraphics[width=.4\linewidth]{EMRCA_graphical2}
+        \caption[Generative model with low-rank plus sparse-inverse covariance.]{\label{fig:EMRCAgraph} Generative model that yields a low-rank plus sparse-inverse structure in the marginal covariance. The parameters are optimised by an EM/RCA hybrid.}
+      \end{figure}
+    
+      Averaging over $\mb{X} \in \Realspace^{n \times q}$ in the graphical model yields the joint log-density
+      \begin{align}
+        \label{equ:chap5_Y_marginal} \ln p(\mb{Y},\bLambda \,|\, \mb{W}) &= \sum_{i} \ln \left\{ \Normal{ \mb{y}_{i} \,|\, \mb{0} }{ \mb{W} \mb{W}^\top + \bLambda^{-1} } p \left( \bLambda \right) \right\} \\
+        \label{equ:chap5_LB} &\geq \int q(\mb{Z}) \ln \frac{p(\mb{Y},\mb{Z},\bLambda)}{q(\mb{Z})} ~ \textrm{d}\mb{Z} ~.
+      \end{align}
+      The integral in eq.~\eqref{equ:chap5_LB} acts as a \textit{variational lower bound}\footnote{Computation is reduced to optimising a functional with respect to the distribution $q()$.} of the joint log-density in eq.~\eqref{equ:chap5_Y_marginal} and $~q(\mb{Z})~$ is the \textit{variational} distribution that we must optimise to raise the bound. Because the parameters $\mb{W}$ and $\mb{\Lambda}$ have no fixed-point solution, we seek a MAP solution by optimising the lower bound via the expectation-maximisation algorithm \citep[EM,][]{Lawrence:licsb10, Dempster:EM77}. We derive the variational lower bound and equations for updates in appendix \ref{sec:app1_EM_forLRSI}. 
+
+      \textbf{E-step} Replacing $~q(\mb{Z})~$ with the posterior $~p\left(\mb{Z}\,|\,\mb{Y},\widehat{\bLambda}\right)~$ for current estimates $~\widehat{\bLambda}~$ and $~\widehat{\mb{W}}~$, amounts to the following E-step for the \emph{exact} update of the posterior distribution of $~\mb{z}_i\,|\,\mb{y}_i~$:
+      \begin{align}
+        \label{equ:chap5_Estep1} \V{\mb{z} \,|\, \mb{y}} &= \left( \left( \widehat{\mb{W}}\widehat{\mb{W}}^\top + \sigma^2\mb{I} \right)^{-1} + \widehat{\bLambda} \right)^{-1} \\
+        \label{equ:chap5_Estep2} \E{ \mb{z}_i \,|\, \mb{y}_i } &= \V{\mb{z} \,|\, \mb{y}} \left ( \widehat{\mb{W}} \widehat{\mb{W}}^\top + \sigma^2 \mb{I} \right)^{-1} \mb{y}_i \\
+        \label{eq:Avg_E_fft} \mathbb{E}_{p(\mb{z}\,|\,\mb{y})}[ \mb{z}_i \mb{z}_i^\top ] &= \V{ \mb{z} \,|\, \mb{y} } ~+~ \E{ \mb{z}_i \,|\, \mb{y}_i } \E{ \mb{z}_i \,|\, \mb{y}_i }^\top ~.
+      \end{align}
+     
+      \textbf{M-step} Then for fixed $~\widehat{\mb{Z}}~$, the only free parameter in the expected complete-data log-likelihood $~\mathcal{Q} = \mathbb{E}_{p(\mb{Z}\,|\,\mb{Y})} \left[ \ln p \left( \mb{Z}, \bLambda \right) \right]~$ is the sparse-inverse $~\bLambda~$. Therefore, the update for $\bLambda$ depends on the L1 problem:
+      \begin{align} \label{equ:chap5_Mstep}
+        \widehat{\bLambda} \quad = \quad \underset{\bLambda}{\textrm{max}} \quad \ln \verts{\bLambda} - \tr{ \tfrac{1}{n}\sum_i \left\{ \mathbb{E}_{p(\mb{z}\,|\,\mb{y})}[ \mb{z}_i \mb{z}_i^\top ] \right\} \bLambda} - \lambda \norm{\bLambda}_1 ~,
+      \end{align}
+      which can be maximised efficiently with the \textit{graphical-Lasso} algorithm \citep[GLasso,][]{Friedman:sparse08, Banerjee:model2008} (note the L1-penalty for sparsity).
+     
+      \textbf{RCA-step} After one iteration of EM, we update $~\widehat{\mb{W}}~$ via RCA based on the newly estimated $~\widehat{\bLambda}~$, by first solving for $~\mb{S}~$ in the GEP:
+      \begin{align} \label{equ:chap5_RCAstep}
+        \begin{split}
+	\tfrac{1}{n} \mb{Y}^\top \mb{Y} \mb{S} &= \bSigma_{GMRF} \mb{S} \mb{D} \quad \textrm{where} \quad \bSigma_{GMRF} = \bLambda^{-1} \\
+	\widehat{\mb{W}} &= \bSigma_{GMRF} \mb{S} \mb{(D - I)}^{1/2} ~.
+        \end{split}
+      \end{align}
+ 
+      Algorithm \ref{alg:EMRCAalgorithm} summarises the EM and RCA steps which collectively constitute one iteration of the EM/RCA hybrid:
+      \begin{algorithm}
+        \caption{EM/RCA} \label{alg:EMRCAalgorithm}
+        \begin{algorithmic}
+	\STATE Initialise $~\sigma^2~$, $~\widehat{\mb{W}}~$ and $~\widehat{\bLambda}~$ and $\lambda~$.
+ 	\REPEAT
+ 	  \STATE \textbf{E-step:} Update posterior distribution of $\mb{Z}|\mb{Y}$ with \eqref{equ:chap5_Estep1} and \eqref{equ:chap5_Estep2}.
+ 	  \STATE \textbf{M-step:} Update $\widehat{\bLambda}$ with \eqref{equ:chap5_Mstep}.
+ 	  \STATE \textbf{RCA-step:} Update $\widehat{\mb{W}}$ with \eqref{equ:chap5_RCAstep}.
+ 	\UNTIL{the lower-bound \eqref{equ:chap5_LB} converges.}
+         \end{algorithmic}
+       \end{algorithm}
+       
+       
+    \subsubsection{Related work}
+    A more generalised approach was proposed recently by \citet{Agakov:Mixtures12},
+    where the sparsity assumption is on the \emph{joint} field of observed and latent variables.
+    Under this framework, our ``low-rank plus sparse-inverse'' approach becomes the special case where there are as many latent variables as
+    there are observed (a one-to-one correspondence) and we focus only on structure learning of the latent field.
+    The authors also consider straightforward extensions to discriminative mixtures of such fields,
+    where each expert is activated based on side information, and for ``Gaussianising'' long-tailed marginals
+    through Gaussian copulas.
+    
+    Another closely related approach was by \citet{Chandrasekaran:Latent10} where the marginal precision matrix
+    of the observed variables is decomposed into a sum of \emph{sparse plus low-rank} terms.
+    This occurs when the latent dimensionality is smaller than the observed and the
+    \emph{conditional} precision matrix (of the observed given the latents) is assumed to be sparse.
+    Then the sparse/low-rank decomposition naturally appears as the Schur complement of the latent variables'
+    (lower-right) block in the joint precision matrix (see also Appendix \ref{sec:app1_Gaussian_identities}).
+
+
+
+    \subsection{Experiments} \label{subsec:chap5_experiments}
+
+      %     We describe three experiments with the EM/RCA algorithm and one purely with RCA analysing the residual left from a Gaussian process (GP) in a time-series.
+      %     The following apply for experiments involving EM/RCA:
+      For each experiment, we initialise:
+      \begin{itemize}
+        \item the noise variance as $~\sigma^2 = \tfrac{1}{2p}~\textrm{tr}~\widehat{\mb{S}}~$, where $\widehat{\mb{S}}$ is the sample-covariance of the data $\mb{Y} \in \Realspace^{n \times p}$. Note that if we fix $\sigma^2$ to the initialized value, this implicitly fixes the number of latent variables (confounders). % In the following case-studies, the number of latent variables is small, and thus results are robust for not too large $\sigma^2$ values.
+        A more systematic approach would be a line search on $\sigma^2$ during the M-step or using the BIC criterion over a small range of $q$ (number of latent variables);
+        \item the loadings matrix as $~\mb{W} = \mb{U}_q(\mb{L}_q - \sigma^2\mb{I})^{1/2}~$ with the $q$ principal eigenvectors in $\mb{U}_q$ whose eigenvalues are larger than $\sigma^2$;
+        \item the sparse GMRF-encoding matrix as $\bLambda = \mb{I}$ (no dependencies);
+        \item a sequence of L1-regularisation parameters as $\lambda = 5^x$ such that $x$ is linearly interpolated in [-8,3], thus creating a solution ``path''\footnote{A path of sparse-inverse estimates,
+        where the estimate for some $\lambda_i$ is used as the initialisation for $\lambda_{i+1}$.}
+        as $\lambda$ increases exponentially. The solution paths of \textit{lasso}-based algorithms tend to be unstable. Therefore, we apply a form of \textit{stability selection} \citep{Meinshausen:stability10} to smoothen the solution paths: for each $\lambda$ and method, the results are stabilised by taking 100 repeats with a random 90\% sub-sampling for each repeat. If an edge of the GMRF is called (that is, estimated as non-zero in $\bLambda$) on more than 50\% of the repeats then it is declared \textit{active}.
+      \end{itemize}
+      A result for a particular regularisation parameter $\lambda$ constitutes an estimate $\widehat{\bLambda}$. The estimate is compared to the ground-truth network, represented by the adjacency matrix $\mb{G}$. For some $\Lambda_{ij} \neq 0$, the call is \textit{true-positive} (\textit{TP}) if $G_{ij} \neq 0$ and \textit{false-positive} (\textit{FP}) if $G_{ij} = 0$. The efficiency of the algorithm is measured in terms of \textit{recall} $= \frac{\#TP}{\#\textit{P}}$ and \textit{precision} $= \frac{\#TP}{\#TP~+~\#FP}$ where \textit{\#P} are the total true edges. As the $\lambda$ parameter increases to the next number in the sequence, EM/RCA continues from the point where it last converged, thus tracing a performance path in the recall-precision space.
+
+
+    \subsubsection{Simulations} \label{subsec:chap5_simulation}
+
+      We consider an artificial dataset sampled from the generative model in eq. \eqref{equ:chap3_LRSIgenmodel}, Figure \ref{fig:EMRCAgraph}, to demonstrate the effects that confounders have on the estimation of the sparse-inverse covariance. Specifically the raw data are generated as:
+      
+      $~\mb{Y} = \mb{X}\mb{W}^\top + \mb{Z} + \mb{E}~$,\quad where \quad $~\mb{Y},\mb{E} \in \Realspace^{100 \times 50}, \quad \mb{W} \in \Realspace^{50 \times 3}, \quad \mb{X} \in \Realspace^{100 \times 3}~$. For each sample, \quad $\mb{x}_i \sim \Normal{\mb{0}}{\mb{I}_3}, \quad \mb{z}_i \sim \Normal{\mb{0}}{\bLambda^{-1}}, \quad \bepsilon_i \sim \Normal{\mb{0}}{\sigma^2\mb{I}}$ \quad and \quad $\mb{w}_j \sim \Normal{\mb{0}}{\gamma\mb{I}_{50}}~$. The sparsity of $~\bLambda~$ is 1\% of all $~p(p-1)/2~$ potential edges in the GMRF. The non-zero entries of $~\bLambda~$ are iid samples from $~\Normal{1}{2}~$. The variance $\gamma$ is such that $\bLambda^{-1}$ and $\mb{W}\mb{W}^\top$ explain an equal amount of variance and the variance $\sigma^2$ of the induced noise is such that the signal-to-noise ratio (SNR) is 10.
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure[Simulation]{ \label{fig:EMRCAsim_results}
+	  \includegraphics[width=.46\linewidth]{EMRCA_simdata_rho_1_n_m1_sigma2_n_5m1_LARGEFONT}
+	}
+	\hfill
+	\subfigure[Sachs]{ \label{fig:EMRCAprotsig_results}
+	  \includegraphics[width=.45\linewidth]{EMRCA_protsigdata_stable_seed_1e4_la50_m8p3_n_50pcAvgTr_LARGEFONT}
+	}
+	\caption[Results on simulations with a low-rank plus sparse-inverse covariance.]{
+	  \subref{fig:EMRCAsim_results} Recall-precision curves of EM/RCA and GLasso on the simulated confounded dataset (solid curves), and GLasso on the simulated non-confounded dataset (dashed curve). \subref{fig:EMRCAprotsig_results} EM/RCA, KroneckerGLasso and GLasso on the Sachs data. The Kronecker-GLasso and GLasso curves are taken from \citep{stegle:efficient11}.
+	}
+	\label{fig:EMRCAsimdata}
+      \end{figure}
+      Figure \ref{fig:EMRCAsim_results} shows the effectiveness of EM/RCA on a dataset suffering from confounders, whereas standard GLasso fails to find any part of the true structure even when strongly regularised. The EM/RCA algorithm has significantly better performance than GLasso on the confounded data (solid curves). The dashed curve shows the performance of GLasso on the same samples but without confounders ($\mb{W}$ is zero). We note that EM/RCA on the confounded data performs better than GLasso on the unconfounded data because the latter have a lower SNR.
+
+
+      \subsubsection{Reconstructing a protein-signaling network} \label{subsubsec:chap5_protsig}
+    
+        We compare EM/RCA to the \textit{Kronecker}-GLasso algorithm of \citet{stegle:efficient11} on the protein-signaling data from \citep{Sachs:causal05}. These data provide signal measurements from $p=11$ proteins under various external stimuli. We collect $n = 2,666$ samples from the first three experiments into one heterogeneous dataset $\mb{Y} \in \Realspace^{n \times p}$. The heterogeneous conditions of these experiments induce confounding effects in the data. For the sake of comparison, we also run the analysis on a random 10\% subset of the $n$ samples, with a 10\% from each of the three experiments. All results are validated based on the \textit{moralised}\footnote{For any node, its parents are connected and all edges become undirected.} version of the directed ground-truth network, constructed and validated biologically by \citet{Sachs:causal05}.
+        \begin{figure}[!htbp]
+% 	\begin{subfigure}
+	  \centering
+% 	  \hskip.03\linewidth
+	  \includegraphics[width=.35\linewidth]{sachsnet}
+	  \hskip.1\linewidth
+% 	  \hfill
+	  \includegraphics[width=.35\linewidth]{EMRCAnet}
+% 	  \vskip-.1cm
+	  \includegraphics[width=.85\linewidth]{GLASSO_KronGLASSO_nets}
+% 	\end{subfigure}
+	\caption[Comparing reconstructed networks from the Sachs dataset.]{
+	  Reconstructed networks by EM/RCA, Kronecker-GLasso and GLasso on the Sachs data, for $0.4$ recall.
+	  Red edges indicate false-positives.
+	}
+	\label{fig:EMRCAprotsig_networks}
+        \end{figure}
+        Figure \ref{fig:EMRCAprotsig_results} shows EM/RCA slightly outperforming the other methods and Figure \ref{fig:EMRCAprotsig_networks} shows the reconstructed networks for recall 0.4. We observe that EM/RCA appears more conservative in calling positive edges while preserving a higher precision.
+
+
+      \subsubsection{Reconstructing the human form} \label{subsubsec:chap5_mocap}
+
+        The data in this experiment come from the CMU motion-capture database\footnote{\url{http://mocap.cs.cmu.edu}.}. The objective is to reconstruct the underlying connectivity of the human form, given only the 3D locations of 31 sensors placed about the figure's body.  Each captured motion in the database involves data of the skeleton (or stickman) specific to the person under the trial (different heights, builts, etc.) and the 3-D sensor cloud data. Each trial involves 31 sensors, so the raw dataset for each trial has size $n$ (frames captured in the trial) $\times$ 93 (x,y,z $\cdot$ sensors).
+
+        The aim of our model is to recover the connectivity between these sensors. This should be possible because we expect sensors that are connected in the underlying figure to be conditionally independent of other sensors in the figure. This motivates the underlying sparse structure. Conversely, different motions exhibit much broader correlations across the figure. In particular, walking exhibits anti-correlations between sensors on different legs and across the arms. These types of motion should be far better recovered through a low-rank representation of the covariance.
+
+        \begin{figure}[!htbp]
+	\centering
+	% \includegraphics[width=.13\linewidth]{stickman_skeleton}
+	% \hspace{.05\textwidth}
+	\subfigure[]{ \label{subfig:EMRCAcmudata_curves}
+	  \includegraphics[width=.45\linewidth]{EMRCA_cmudata_FORDEMO}
+	}
+	\subfigure[]{ \label{subfig:human_confouders}
+	  \includegraphics[width=.48\linewidth]{HumanConfounders_recall076_FORDEMO}
+	}
+	\caption[Recall-precision curves on the CMU motion-capture dataset.]{ \subref{subfig:EMRCAcmudata_curves}
+	  Recall-precision curves of EM/RCA and GLasso on the CMU motion-capture data. \subref{subfig:human_confouders} Hinton diagram of $\mb{X}$ capturing the confounding effects in the motions. Each column of $\mb{X}$ is visualised by rearranging its elements to the corresponding sensors on the ground-truth stickman. The colour of a dot indicates the sign and the size is proportional to the magnitude of the corresponding element in $\mb{X}$.}
+	\label{fig:EMRCAcmudata}
+        \end{figure}
+      
+        If, as expected, the raw data is confounded by low-rank properties associated with particular structured motions (as opposed to random poses, as might be adopted by a wooden artist's doll) then our combination of low-rank with sparse connectivity should outperform a model based purely on sparse connectivity. We therefore compare EM/RCA and GLasso on trials involving walking, running, jumping and dancing. The local connectivity between the sensors, i.e. the human skeleton, should be represented in the sparse matrix $\bLambda$ (prescribing a Gaussian random field). To further motivate this idea we also note the physical interpretation of $\bLambda$ as the stiffness (or Laplacian) matrix of a spring network, where the off-diagonal entries represent the negative stiffness of the spring. Therefore, to detect an ``attracting" connection between two sensors we look only for negative entries in the estimated $\bLambda$\footnote{On a similar note, see also MacKay's ``\emph{The Humble Gaussian distribution}" 
+on interpreting Gaussian graphical models as energy models.}.
+       
+        \paragraph{Data preprocessing}
+        Because we are interested in modeling interactions between sensors and to avoid modeling explicitly the correlations between spatial features (x-y-z coordinates) within a sensor, we convert absolute positions of the point cloud into inter-point distances. Hence the covariance to be analysed reduces from 93 features to 31 (number of sensors involved in a frame). Also, we treat the frames as independent, meaning that we ignore the sequence in which they appear in a trial. This amounts to summing up sensor-covariances across all frames.
+        Let $\mb{H}(k) \triangleq \mb{I} - \tfrac{1}{k}\mb{1}\mb{1}^\top$ be the \emph{centering} operator, where $\mb{1} \in \Realspace^{k}$ is the vector of ones; $\mb{D}^{(f)}$ is the \emph{squared distance} matrix for some configuration of points (sensors) $\mb{X}_{(f)} \in \Realspace^{31 \times 3}$ at frame $f$, such that
+        \[
+          D_{ij} = (\mb{x}_i - \mb{x}_j)^\top (\mb{x}_i - \mb{x}_j) = \mb{x}_i^\top \mb{x}_i^{~} - 2 \mb{x}_i^\top \mb{x}_j^{~} + \mb{x}_j^\top \mb{x}_j^{~} ~,
+        \]
+        and in matrix notation $\mb{D} = \mb{1} ~\diag{\mb{X}\mb{X}^\top}^\top - 2 \mb{X} \mb{X}^\top + \diag{\mb{X} \mb{X}^\top} \mb{1}^\top ~$. Centering $\mb{D}$ gives the centered squared distance matrix
+        \begin{equation} \label{equ:chap5_centered_inner_product}
+          \mb{H} \mb{D} \mb{H} = - 2 \mb{H} \mb{X} \mb{X}^\top \mb{H} \propto \bar{\mb{X}} \bar{\mb{X}}^\top = \bar{\mb{K}}~, \quad \textrm{since} \quad \mb{H} \mb{1} = \mb{0} ~.
+        \end{equation}
+        Hence computing the centered squared distance matrix is equivalent to computing the centered inner-product matrix (that is, the inner-product matrix of the centered raw data $\bar{\mb{X}}$). Let $\bar{\mb{x}}_j \in \Realspace^{31}$ denote the $j$-th column of $\bar{\mb{X}}$, collecting the x-only-coordinates of all 31 sensors (or y, z depending on $j$) for a particular frame. Then from eq.~\eqref{equ:chap5_centered_inner_product}, the sum across frames $\sum_f^{~} \bar{\mb{X}}_{(f)}^{~} \bar{\mb{X}}_{(f)}^\top = \sum_f \bar{\mb{K}}_{(f)}$ can be seen as a sum of independent scatter matrices in the dual representation, and since $\bar{\mb{X}} \bar{\mb{X}}^\top= \sum_j \bar{\mb{x}}_j^{~}  \bar{\mb{x}}_j^\top$ then $\sum_f \bar{\mb{K}}_{(f)} = \sum_{f,j}^{~} \bar{\mb{x}}_j^{(f)} \bar{\mb{x}}_j^{(f)\top}$, which is the scatter matrix of all $\bar{\mb{x}}_j$ vectors as samples (rows) in our final design matrix $\mb{Y}$.      
+        To summarise the preprocessing, we start with raw data $\mb{X}_{(f)} \in \Realspace^{31 \times 3}$ for each frame $f \in \{1,..,F\}$, center its rows via $\mb{H} \mb{X}_{(f)} = \bar{\mb{X}}_{(f)}$ and collect all frames in the design matrix $\mb{Y}^\top = [ \bar{\mb{X}}_{(1)} \dots \bar{\mb{X}}_{(F)} ]$. This amounts to working with the dual representation of the data and treating as independent the frames as well as the sensor (x,y,z) coordinates.
+      
+        \paragraph{Results}
+        Figure \ref{fig:EMRCAcmudata} shows the recall-precision curves for GLasso and EM/RCA on the CMU mocap data, where EM/RCA consistently outperforms standard GLasso. Figure \ref{fig:CMU_results} shows the stickmen recovered by EM/RCA and GLasso. We note that the connectivities and eigenposes are more faithful to the true human form, in comparison to GLasso. For a small $\lambda$ setting (recall 1) the precisions are similar; nonetheless the human form is robust, with very weak (yellow) edges wherever they do not apply (e.g. elbow-waist, elbow-head). This signifies that the precision measure might be ill-suited for evaluating a stickman, where the network configuration has a spatial interpretation. The ground-truth is also ``noisy" in the sense that a shoulder-chest edge, for instance, must be called as the torso is a rigid part of the human body (high stiffness)
+        \begin{figure}[!htbp]
+          \centering
+          \includegraphics[width=.70\linewidth]{HumanForms_recall076_FORDEMO}
+          \includegraphics[width=.70\linewidth]{HumanForms_recall100_FORDEMO}
+          \caption[Stickman reconstructions by EM/RCA and GLasso.]{ \label{fig:CMU_results} Stickman reconstructions by EM/RCA (left) and GLasso (right) for recalls 0.77 (top) and 1 (bottom). For each stickman, inferred edges are superimposed on the \textit{eigenposes} extracted from the 3 principal eigenvectors of the estimated sparse $\bLambda$ (or Laplacian of the spring system). Edge color and thickness indicate the negative stiffness intensity (red is large) and the black lines are shadows for aiding the perspective.}
+        \end{figure}
+          
+        Figure \ref{subfig:human_confouders} illustrates the confounding effects captured by $\mb{X}$ (as part of $\mb{X}\mb{X}^\top + \bLambda^{-1}$). Specifically, in the first component, the legs are anti-correlated to the upper-half of the body, which can be attributed to jumping motions. The second and forth components capture anti-correlations across the different legs and arms, exhibited by walking and running, as discussed earlier. Finally, the third component shows strong anti-correlation between the hands and the rest of the upper-body, which is more open to interpretation.
+ 
+ 
+      \subsubsection{Discovering collusion patterns in voting data} \label{subsubsec:chap5_collusion}
+      
+        And now for something completely different\footnote{This experiment was inspired from Martin O'Leary's blog-post: \url{http://mewo2.com/nerdery/2012/05/20/ive-got-eurosong-fever-ted/}.}. In this section we analyse voting data from the Eurovision song contest collected\footnote{An early version of this dataset was compiled by Anthony Goldbloom of Kaggle, the extended version published by Martin O'Leary at \url{https://github.com/mewo2/eurovision/}.} across recent years. The residents of each country vote for the best song (other than its own). Each country thus produces a ranking which is translated into points; 12, 10, 8, 7, 6, 5, 4, 3, 2, 1 for the top ten. The country with the most points wins the song contest.
+        
+        More precisely, each sample (row) $\mb{y}_i$ in our design matrix consists of the votes that a particular country gave to every other country (from a complete alphabetically ordered list of countries) in a particular year of the competition, and it has the following format:  (\texttt{\# votes to Albania}, \texttt{\#votes to Andorra}, ..., \texttt{\#votes to United Kingdom}). We assume that any country always rewards the maximum allowed points to itself (a country always likes its own song), and the whole row forms an affinity vector of the country towards all countries (including itself) for the duration of one competition.
+        
+        The goal here is to reconstruct a network of collusive voting, that is, determine the pairs of countries that tend to vote on any basis of factors other than song quality/popularity (for instance, political relations, geography, etc). Naturally, we assume this network to be sparse and we relax the ordinal (non-Gaussian)
+        restriction of the variables such that they follow a Gaussian graphical model.
+        We also expect the network to form geographically relevant clusters.
+        
+        \begin{figure}[!htbp]
+          \centering
+          \includegraphics[width=.90\linewidth]{EuroNet}
+          \caption[Emergence of voting blocs in data from the Eurovision song contest.]{ \label{fig:Eurovision_results} The emergence of voting blocs in the Eurovision song contest. Only edges of negative entries in the precision are shown, which imply ``attracting" links.
+          Three distinct blocs are visible: the northern bloc consisting mainly of Britannic, Scandinavian and Baltic states, the eastern bloc consisting only of post-Soviet states, and the southern bloc consisting mainly of Balkan and Slavic states. Darker edges imply stronger conditional dependencies. The coordinates forming this map are artificially induced and not part of the output.}
+        \end{figure}
+        
+        As in the previous experiment, we are interested in positive interactions (collusions) so we focus on the negative entries of the estimated precision. Unfortunately this case has no ground truth; nonetheless, there is some room for qualitative evaluation: namely, the topology of the collusion network in Figure \ref{fig:Eurovision_results} reflects to some extent the European geography (that is, most conditional dependencies are restricted between geographical neighbors).
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+  \section{Analysing residuals of a Gaussian process} \label{sec:chap5_GEdifferences}   
+    
+    \paragraph{Differences in gene expression profiles}  
+    We now revisit the analysis of gene expression time-series from chapter \ref{chap2:GP}.
+    To reiterate the problem, a common challenge in data analysis is to summarize the difference between treatment and control samples. To illustrate how RCA can help, we consider two gene expression time-series of cell lines.
+    The treatment cells are targeted by TP63 introduced into the nucleus by tamoxifen. The control cells are simply subject to tamoxifen alone.
+    The data used for this case study come from \citep{della2008direct}\footnote{GEO database, accession number GSE10562.}.
+    The treatment group $\mb{Y}_1 \in \mathbb{R}^{n_1\times p}$ contains n=13 time-points of $p=22,690$ gene expression measurements, whilst the control group $\mb{Y}_2 \in \mathbb{R}^{n_2 \times p}$ contains only $n_2=7$ time-points.
+    This complexity of data (with different numbers of time-points and non-uniform sampling) is typical of many bio-medical data sets.
+    The challenge is to represent the differences between the gene expression profiles for these two data sets.
+    CCA could be applied but this would represent the similarities between the data, not the differences.
+ 
+    First we consider the null hypothesis that both time-series are identical.
+    This implies that $\mb{y}^\top = (\mb{y}^\top_1 \; \mb{y}^\top_2)$ can be modeled by a Gaussian process (GP) with a temporal covariance function, $ \mb{y} \sim \mathcal{N}(\mb{0}, \mb{K})$, where $\mb{K} \in \mathbb{R}^{n\times n}$ for $n \!\!=\!\! n_1 \!\!+\!\! n_2$ is structured such that both $\mb{y}_1$ and $\mb{y}_2$ are generated from the same function, $K_{i, j} = k(t_i, t_j) = \exp(-\tfrac{1}{2}\ell^{-2}(t_i - t_j)^2)$, a squared-exponential covariance function (or RBF kernel, figure \ref{fig:combRBF}).
+    Other kernels could be used and the hyperparameters of the kernel could be optimized, but for this simple demonstration we set $\ell=20$ which provides a bandwidth roughly in line with the time-point sampling intervals.
+    We also add a small noise term along the diagonal of $\mb{K}$ which was set to 1\% of the data variance.
+ 
+    Now by the null hypothesis assumption,
+    a more general model (dual paradigm) of the form $ \mb{y} \sim \mathcal{N}(\mb{0}, \mb{\mb{X}\mb{X}^\top + \mb{K}})$, should explain no variance in the low-rank component $\mb{X}\mb{X}^\top$,
+    as all the signal in the time-series is assumed to be explained by the underlying function sampled from the GP.
+    If we solve for the residual components $\mb{X}$ via RCA, they will be forced to explain how the two time-series are actually different.
+       % In other words we model the data through the \emph{dual} paradigm with a
+       % covariance of the form
+       % $\mb{C} = \mb{X}\mb{X}^\top + \mb{K}$ 
+       % and solve to find the residual components $\mb{X}$.
+       % Our data consists of
+       % A common problem in gene expression data is to analyze the difference
+       % between a treatment and control on 
+       % If both treatment and control came from the same time-series, they could be
+       % represented through a temporal Gaussian process using a shared covariance
+       % function, $\mb{K}$.. Our idea is to acknowledge the time-series nature of
+       % the data by assuming that the 
+       % Our design matrix $\mb{Y} = \begin{bmatrix} \mb{Y}_1
+       %   \\ \mb{Y}_2 \end{bmatrix} \in \mathbb{R}^{n\times p}$ is a
+       % concatenation of the two groups. Also, in this scenario $n \ll p$. We
+       % apply the dual case of RCA because we are interested in analysing the
+       % temporal structure of the expression profiles. This mean that our data
+       % is centered across the features (genes), not the samples (time-points).
+       % By eq. \eqref{equ:rcaeigenproblem},
+       % \[
+       % \mb{Y}\mb{Y}^\top\mb{S} = \mb{\Sigma}\mb{S}\mb{D},
+       % \]
+       % $\mb{\Sigma}$ should be a positive-definite matrix which encodes for the
+       % gene expression across the two conditions being identical. The hope is that
+       % the
+       % residual covariance spanned by $\mb{S}$ should capture strong features
+       % of differential behaviour across the two treatments.
+ 
+       %  regardless of whether the data point was from treatment or control.
+       % $\mb{\Sigma} = \mb{K}$, an RBF kernel, to encode for
+       % indentical expression across treatments, see Figure
+       % \ref{fig:combRBF}. This kernel $\mb{K}$ is computed
+       % % block diagonal terms along with the off-diagonal block terms of the kernel
+       % are
+       % % computed jointly
+       % by concatenating the time-points (inputs) used in the two conditions (20 in
+       % total). This concatenation effectively forces the kernel to treat the,
+       % knowingly
+       % different, time-series as if they were generated by processes of identical
+       % characteristics (here, same lengthscale and noise variance).
+       % % A reasonable configuration for the RBF kernel hyper-parameters is used:
+       % % the square of a typical time interval between samples ($\ell^2 = 20^2$) as
+       % the
+       % % characteristic lengthscale, and noise variance $\sigma^2_n = 0.01$.
+       % % The block diagonal terms $\mb{K}_{c1}, \mb{K}_{c2}$ are covariance
+       % % matrices computed through RBF covariance functions on the time-points
+       % (inputs)
+       % % of each condition individually.
+       % % They are symmetric and positive-definite as expected.
+
+    We project the profiles onto the eigen-basis of the first $q$ generalised eigenvectors $\tilde{\mb{Y}} = \mb{S}_q^\top\mb{Y}$ and obtain a score of differential expression based on the norms of their projections. The number $q$ of retained principal eigenvectors is decided on the number of corresponding eigenvalues $d_i$ being larger than one.
+    %  for which $d_i > 1$.
+    Recall from PPCA, that as we increase the assumed noise variance $\sigma^2$, more eigenvalues become negative and less eigenvectors are retained in $\widehat{\mb{W}}$ of eq.~\eqref{equ:chap3_pca_solution}, p.~\pageref{equ:chap3_pca_solution}. Similarly, RCA standardises any noise in eq.~\eqref{equ:chap3_projectedK}, so we only have to retain the eigenvectors of eigenvalues larger than 1. In this case, the assumed noise variance embedded in the kernel drives the effective number of eigenvectors in the projection basis.
+ 
+    \begin{figure}[!htbp]
+      \centering
+      \subfigure[]{ \label{fig:combRBF}
+        \includegraphics[width=.45\linewidth]{RCAonDGATTAdata_combRBFkernel_noise01}
+      }
+      % \hfill
+      \subfigure[]{ \label{fig:RCAvsBATS}
+        \includegraphics[width=.45\linewidth]{RCAvsBATS_onTP63_noise1e-4}
+      }
+      \caption[RBF covariance computed on the augmented time-input vector.]{
+        \subref{fig:combRBF} An RBF covariance computed on the augmented time-input vector for the microarray experiment. The covariance is computed across the times $\mb{t}^\top = ({0:20:240}, 0, 20, 40, 60, 120, 180, 240)$ jointly for control and treatment. % with bandwidth parameter $\ell = 20$ and noise variance $\sigma^2_n = 10^{-4}$.
+        \subref{fig:RCAvsBATS} ROC comparison against BATS variants of different noise models (G: Gaussian, T: t-distribution, DE: double-exponential). See also \citep{Kalaitzis:simple11} for an alternative approach based on GPs.
+      }
+    \end{figure}
+
+    We rank the scores and compare to the noisy ground-truth list of binding targets\footnote{A gene with a large number of binding sites for TP63 is a strong candidate for being one of its direct targets, and thus associated with TP63-related diseases.} of TP63 from \citep{della2008direct}, giving the ROC performance curve in Figure \ref{fig:RCAvsBATS}. The baseline method that we compare against is the Bayesian hierarchical model BATS % \footnote{The software of Bayesian Analysis for Time Series is available at \url{http://www.na.iac.cnr.it/bats/index_file/download.htm}.}
+\citep{angelini2007bayesian}. Note that RCA outperforms BATS in terms the area under the ROC curve for all of its noise models.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Summary}
+  
+    Full covariance matrix models of data are often problematic as their parameterisation scales with $p^2$.
+    Two separate approaches to a reduced parameterization of these matrices are to base them on low-rank matrices (as in probabilistic PCA) or on a sparse-inverse structure (as in GLasso).
+    These two approaches have very different characteristics: one assumes that a reduced set of latent variables is governing the data, the other involves specifying sparse conditional dependencies in the data.
+    More precisely, when the data marginal is Gaussian, the precision (inverse-covariance) matrix induces a Gaussian Markov random field.
+    Furthermore, a \emph{sparse} precision possesses a valuable graphical interpretation, put to fruition as an efficient regression model or as a structure learning approach.
+    Clearly, in any given dataset both low-rank and sparse-GMRF characteristics may be present.
+    
+    % Our sparse-inverse plus low-rank approach is the first approach to deal with both of these cases in the same model. It was demonstrated to good effect in a motion capture and protein network example.
+    After describing the RCA framework in chapter \ref{chap3:RCA}, in the present chapter we addressed the above problem to motivate the particular case of the explained covariance term $\mb{\Sigma}$ being sparse-inverse.
+    We proposed a basic point-estimation algorithm based on EM for learning the low-rank and sparse-inverse parts of the marginal covariance.
+    This was demonstrated to good effect with experiments spanning computational biology, with an example of a small protein-signaling network; motion-capture, where the results became much more visually interpretable; and a ``socio-political" example, where we showed evidence of collusion in the Eurovision voting ``system" amongst participating nations.
+    
+    As an attempt to tie RCA to GPs from Chapter \ref{chap2:GP}, we closed with a simple demonstration of explaining away the trained covariance of a GP (defined by a RBF) on concatenated time-series from two different conditions.
+    The residual structure served as the basis for measuring the differential expression across the experiments.
+
+    Armed with a background on sparse-inverse selection, for the next and final chapter we will focus solely on the sparsity of precision matrices of matrix-normal (or matrix-Gaussian) models, that is, Gaussian densities over \emph{random matrices}.
+    We will use this distribution on design matrices and learn its two precision matrix parameters.
+    One is the precision over the rows of a matrix-sample and the other is precision over the columns.
+    We will show that to simultaneously learn the structure of those two graphs is at least as hard as an iterative application of GLasso, which is provably efficient in itself.
+    We will motivate the Kronecker-sum as a novel structure for the joint precision of matrix-normal, which borrows from Algebraic Graph Theory and provides an easily interpretable factorisation of the precision, among other benefits.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+%   \section{Discussion}
+%     We are often faced with data that can be partially explained by a set of
+%     covariates and may wish to analyse the residual components of these data. This
+%     motivated us to construct the residual component analysis algorithm: an
+%     algorithm for
+%     describing a low dimensional representation of the residuals of a data
+%     set given partial explanation by a covariance matrix $\mb{\Sigma}$. The low-rank
+%     component of the model can be determined through a generalized eigenvalue
+%     problem. The special case of principal component analysis being recovered for
+%     $\mb{\Sigma}=\sigma^2\mb{I}$. Our algorithm also generalizes probabilistic
+%     CCA, but with further imaginative application we can develop new approaches to
+%     data analysis. 
+% 
+%     As examples we illustrated how a treatment and a control  time-series could have
+%     their differences highlighted through appropriate selection of $\Sigma$ (in this
+%     case we used a Gaussian process covariance function). We also introduced an
+%     algorithm  for fitting a  variant of CCA where the private spaces are explained
+%     through low dimensional latent variables themselves. 
+% 
+%     Our final, and perhaps most important, new data analysis technique combined
+%     sparse-inverse covariance with low-rank. Full covariance matrix models of data
+%     are often problematic as their parameterization scales with $D^2$. Two separate
+%     approaches to a reduced parameterization of these matrices are to base them on
+%     low-rank matrices (as in probabilistic PCA) or on a sparse-inverse structure (as
+%     in GLASSO). These two approaches have very different characteristics: one
+%     involves specifying sparse conditional independencies in the data, the other
+%     assumes that a reduced set of latent variables is governing the data. Clearly,
+%     in any given data set, both of these characteristics may be present. Our sparse-inverse
+%     plus low-rank approach is the first approach to deal with both of these cases in
+%     the same model. It was demonstrated to good effect in a motion capture and
+%     protein network example.
+
+% ------------------------------------------------------------------------
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
