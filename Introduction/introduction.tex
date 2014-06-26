@@ -1,0 +1,84 @@
+%%% Thesis Introduction --------------------------------------------------
+\chapter{Introduction}
+\ifpdf
+    \graphicspath{{Introduction/IntroductionFigs/PNG/}{Introduction/IntroductionFigs/PDF/}{Introduction/IntroductionFigs/}}
+\else
+    \graphicspath{{Introduction/IntroductionFigs/EPS/}{Introduction/IntroductionFigs/}}
+\fi
+
+%{\color{red} [Write me second to last, before the abstract. Give me a story. What am I going to read?]}
+
+  {\color{black} The Gaussian family of distributions seems simplistic with only two moments to fit, though with easily interpretable parameters. Its tails decay too rapidly for many real-world distributions.}
+  In the spirit of George Box's most famous quote\footnote{``All models are wrong but some are useful."}, we will argue through examples that despite its simplicity and unrealism, the standard multivariate Gaussian approach remains ever-useful to statisticians and machine learners.
+  
+  As the title hints, we will focus on the \emph{interactions} between whatever covariates (or interchangeably, features, observables, independent variables, inputs) a data analysis is concerned with.
+  Precisely, \emph{structured} second-order statistics as encoded by the multivariate Gaussian family will be our toolbox.
+  {\color{black} For a $p$-dimensional Gaussian, its $p \times p$ covariance matrix is very expressive and interpretable: a zero in the covariance implies a \emph{marginal} independence constraint, a zero in the inverse-covariance implies a \emph{conditional} independence constraint and its spectral properties can shed light to \emph{hidden} variables.}
+  By ``structured" we mean any restrictions that we will impose on the functional form of the covariance matrix.
+  We will restrict our attention to \emph{linear} relationships between any Gaussian random variables, so all of the models presented will be \emph{linear-Gaussian}, see also a seminal work by \citet{Roweis:unifying99}.
+  {\color{black} Approaches for converting the linear to non-linear (for instance, generalised linear models, GPLVM, etc) or the inverse (for instance, Gaussian copulas, etc) are potential directions to eventually take.}
+  In each chapter we will motivate a particular structure type or combinations of such, namely: covariance functions, low-rank and/or sparse-inverse covariances, Kronecker-products or Kronecker-sums of precision (inverse-covariance) matrices.
+  To these ends, with the exception of Gaussian processes (GP), we will propose novel --- and in some cases re-discovered --- ways to point-estimate (via maximum likelihood or a posteriori) these structures. {\color{black} Fully Bayesian extensions would also be of interest to the community.}
+  
+  \paragraph{Covariance functions}
+  
+  The Gaussian process is one of the success stories of the Gaussian family in machine learning \citep{Rasmussen:book06}.
+  Covariance functions or kernels are now a mainstream line of research partly due to the expansive application of Gaussian processes, first in the geostatistics community (non-linear regression under the name of \emph{kriging}) and later in machine learning for regression and classification.
+  Therefore in Chapter \ref{chap2:GP} we kick off the story with a regression problem that we faced early on, under the guise of ranking genes based on the differential expression of their time-series (or microarray) data.
+  The regression problem was solved by modeling the series with a Gaussian distribution whose covariance is parametrised by a ``vanilla" RBF\footnote{A.k.a. the \emph{double-exponential}, \emph{Gaussian} or as Neil Lawrence prefers, the \emph{exponentiated quadratic} kernel.} kernel. But the true contribution of the chapter is perhaps the ranking of genes based on ratios of GP marginal likelihoods.
+  The chapter is a re-edited version of \citep{Kalaitzis:simple11} and besides presenting the methodology it is also a self-contained introduction to GP regression.
+  
+  \paragraph{Low rank}
+  
+  Perhaps the protagonist of this thesis and the oldest in origin within the chosen topics is the low-rank type of covariance structure.
+  To conceptually tie it with the regression problem above, consider the following problem of correlation effects in the expression series -- for instance, due to a normalisation -- that might be hidden in the microarray data.
+  For each gene, the GP either explains the empirical gene-expression variance with the smooth RBF covariance function, or simply as independent Gaussian spherical noise.
+  It is reasonable to assume that some structure in the measurement error (that is, a colored noise effect) remains to be recovered.
+  This would amount to some additive \emph{low-rank} structure in the covariance of the time-points.
+  This motivates our \emph{residual component analysis} (RCA) framework in Chapter \ref{chap3:RCA}: the recovery of lower-dimensional components that explain the structured noise effect hidden in the data, given a partial explanation (fixed additive part) of the marginal covariance.
+  
+  Chapter \ref{chap4:RCAgeneralisations} will deal with additional theoretical aspects of RCA and in particular its role as a novel link between classical (non-probabilistic) low-rank methods and their modern probabilistic counterparts.
+  For instance, we will show how RCA and its probabilistic variant generalise classical/probabilistic PCA/CCA respectively.
+  Linear discriminant analysis will also reduce to RCA, thus strengthening the marriage of unsupervised and supervised learning.
+  Inspired by the signal processing literature, the geometry of \emph{oblique projections} will bind them all.
+  RCA will also be used to extend, as opposed to generalise.
+  For instance, we will show how an iterative application of RCA (\emph{iterative-RCA}) can be used to analyse disjoint set of covariates with paired samples that supposedly measure overlapping sets of latent factors, a problem known in machine learning as \emph{multi-view learning}.
+  {\color{black} In this way,} we re-invented a re-invention: our iterative-RCA is equivalent to the \emph{extended-CCA} model of \citet{Klami:generative06} which is equivalent of the \emph{inter-battery factor analysis} model studied in the statistics literature \citep{Tucker:interbattery58}.
+  
+  We will discuss a few applications of RCA in Chapter \ref{chap5:RCAapps}.
+  Among them is a simple demonstration that will tie RCA with the use of GPs in Chapter \ref{chap2:GP}: explaining away the trained covariance of a GP (defined by a RBF) on concatenated time-series from two separate experiments.
+  The residual structure will serve as the basis for measuring the differential expression across the experiments.
+  Perhaps the most promising application is the reconstruction of regulatory networks of genes from protein-signaling data.
+  Usually such data are confounded by low-rank effects: structured (that is, correlated) measurement deviations introduced by measuring under heterogeneous experimental conditions (for instance, due to different cell perturbations or platforms or even labs).
+  RCA will help to reduce the low-rank effects and ultimately recover more accurately the sparse conditional dependency structure (equivalently, the sparse precision matrix of the joint Gaussian). But the methodology to actually recover this Markov network will bring us to the next subject of covariance structures.
+   
+  \paragraph{Sparse inverse-covariances}
+  
+  In the later half of this thesis (Chapters \ref{chap5:RCAapps}, \ref{chap6:BiGLasso}) we will depart from the purely \emph{directed} nature of such generative graphical models induced by low-rank structures, and concentrate on learning the structures of purely \emph{undirected} graphs or \emph{Markov networks}.
+  This problem is effectively solved for the purposes of point-estimation, assuming that the true distribution is Markov with respect to a Gaussian graphical model \citep{Friedman:sparse08, Banerjee:model2008}.
+  The challenge presents itself in the form of \emph{unknown latent} factors in the graph (by ``unknown" we mean that one simply postulates their existence); one which we will try to tackle with a \emph{low-rank plus sparse-inverse} covariance structure.
+  We will present no contribution with regards to sparse-inverse selection or lasso optimisation per se, as this theory as firmly founded for our purposes \citep{Tibshirani:Lasso96}.    
+  Chapters \ref{chap3:RCA},\ref{chap4:RCAgeneralisations} and \ref{chap5:RCAapps} are collectively an extended version of \citep{Kalaitzis:rca12, Kalaitzis:rca11}.
+
+  \paragraph{Kronecker-products and Kronecker-sums of sparse inverses-covariances}
+  In the \ref{chap6:BiGLasso}th and final chapter we will describe some work in progress on purely sparse-inverse structures in matrix-Gaussians (or matrix-normals), that is, Gaussian distributions over random matrices. Their potentially large covariances can exploit ideas from algebraic graph theory giving modeling and algorithmic benefits for learning simultaneously two sparse conditional dependency structures, one over the rows of a matrix-sample and one over its columns.
+  Finally, in chapter \ref{chap7:conclusions} we will close with a summary of the main ideas and results of this thesis and outline some ideas for future research.
+
+
+%\subsection*{Chapter contributions}
+
+    %For chapter \ref{chap2:GP}, Alfredo Kalaitzis (AK) designed and implemented the computational analysis and ranking scheme presented, assessed the various methods and drafted the related manuscript.
+   % Neil Lawrence (NL) pre-processed the experimental data and wrote the original Gaussian process toolkit for MATLAB and AK rewrote it for the R statistical language.
+    %Both AK and NDL participated in interpreting the results and revising the manuscript.
+      
+      %For Chapter \ref{chap3:RCA} NL wrote the initial proof of the RCA theorem and designed the subsequent maximum-likelihood algorithm. AK drew connections to CCA and related algorithms
+      
+      %For Chapters \ref{chap3:RCA}, \ref{chap4:RCAgeneralisations} and \ref{chap5:RCAapps}, NL wrote the initial proof of the RCA theorem. AK drew connections to CCA and related algorithms.
+      
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
