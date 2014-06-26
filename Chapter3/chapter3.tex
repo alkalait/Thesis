@@ -1,0 +1,688 @@
+\chapter[Residual component analysis]{Residual component analysis} \label{chap3:RCA}
+
+\ifpdf
+    \graphicspath{{Chapter3/Chapter3Figs/PNG/}{Chapter3/Chapter3Figs/PDF/}{Chapter3/Chapter3Figs/}}
+\else
+    \graphicspath{{Chapter3/Chapter3Figs/EPS/}{Chapter3/Chapter3Figs/}}
+\fi
+
+  %   {\color{red} I AM AN ABSTRACT. WRITE ME LAST...}\\
+  
+  One of our primary assumptions in chapter \ref{chap2:GP} was that of an unstructured noise process.
+  Once we explained any structure with the RBF, the residuals were iid Gaussian spherical noise.
+  In this chapter we study scenarios where the noise has structure and present the \emph{residual component analysis} (RCA) framework that generalises (probabilistic-)PCA for recovering such complex residuals when a partial explanation of the joint covariance is given.
+    Later in chapter \ref{chap5:RCAapps} we will demonstrate this idea of RCA in the context of the regression problem from chapter \ref{chap2:GP}.
+  
+  \textit{Probabilistic principal component analysis} (PPCA) seeks a low dimensional representation of a data set in the presence of independent spherical Gaussian noise.
+  The maximum-likelihood solution for the model is based on an eigenvalue problem on the sample-covariance matrix.
+  In this chapter we consider the situation where the data variance is already \emph{partially} explained by other factors.
+  For instance, these can be \emph{sparse conditional dependencies} between the covariates, or \emph{temporal correlations} between datapoints in a time-series; ultimately, these factors leave some \emph{residual variance} unexplained.
+
+  We address the problem of decomposing \emph{only} the residual variance into its eigenvector components through a \emph{generalised eigenvalue problem} (GEP), which we call \textit{residual component analysis} (RCA) \citep{Kalaitzis:rca11, Kalaitzis:rca12}.
+  We explore a range of new algorithms that arise from the framework, including  one that decomposes the covariance of a Gaussian distribution into a low-rank and a sparse-inverse component.
+  We show that \textit{principal component analysis} (PCA), \textit{canonical correlation analysis} (CCA) and \textit{linear discriminant analysis} (LDA) can be derived as special cases of our algorithm. Furthermore, we discuss a deeper connection of these methods on the basis of oblique (non-orthogonal) projections steered by the structure of the explained covariance term.
+  
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  \subsubsection*{Roadmap}
+    We start by giving some background on \textit{probabilistic principal component analysis} (PPCA) in section \ref{sec:chap3_background}, a Gaussian model that provides a probabilistic interpretation of a classical linear approach on dimensionality reduction.
+    In the same section we also discuss \textit{dual}-PPCA, a basic linear model that is the dual counterpart of PPCA (that is, it describes the relationships between \emph{datapoints} as opposed to \emph{features}).
+    This will lay the basis for any \textit{kernel}-based approach that we might attempt to devise in the future.
+    
+    The shortcomings of the simplistic low-rank plus diagonal covariance will become clear while describing some useful manifestations of linear mixed-effects models, in section \ref{sec:chap3_LRPDcovariance}.
+    This will motivate the use of a more general, \textit{low-rank plus positive definite}, covariance structure along with an algorithm for learning the low-rank component when the positive definite term is known or estimated.
+    In section \ref{sec:chap3_optimising} this idea will crystallise in the form of a formal proof on maximising the likelihood of this covariance structure with respect to the low-rank part.
+    
+    Aside from our contribution in endowing this structure with a probabilistic interpretation, termed \textit{residual component analysis} (analogous to the PPCA-PCA relationship), the task of explaining away structure with some fixed covariates in linear models has long been explored in the statistics and signal processing literature. Therefore, we also aim to uncover a deep connection between any problem that can be cast as a PCA problem (sec.~\ref{subsec:chap3_PCA_equiv}), their probabilistic counterparts  and oblique projections (sec.~\ref{subsec:chap3_RCA_posterior}).
+    
+    At that point, we will have justified RCA as a probabilistic \emph{model} that unifies many different algorithms (chapter~\ref{chap4:RCAgeneralisations}), as opposed to it being a mere algorithmic trick on an eigenvalue problem.
+    This will lay the basis for using RCA in larger graphical models and potentially formulate Bayesian extensions (for example, with sparsity priors on the loadings) or kernelised generalisations through the dual version of the RCA theorem.
+    While this chapter focuses on the theory of RCA, in chapter \ref{chap5:RCAapps} we will demonstrate some of these ideas on the recovery of a protein-signaling network, the modeling of gene expression time-series, the recovery of the human skeleton from motion capture 3-D cloud data, the recovery/mapping of human poses from silhouettes and the discovery of collusion patterns within voting data from the annual Eurovision song contest.
+
+    %   We generalize to fit components in the presence of full covariance noise,
+    %   $\bSigma$. The resulting algorithm analyzes the residuals not
+    %   explained by $\bSigma$ and is termed \emph{residual component analysis}.
+    %   When confronted with multiples sources of data, the usual, generative,
+    %   approach to modeling is to factorise the covariance of the data marginal distribution.
+    %   Ideal factors would be components that explain a shared generating process for
+    %   all data (spanning a latent space shared between the different data-spaces),
+    %   and components that explain how the data differ (spanning the respective private
+    %   latent spaces).
+    %   Here, we focus on the case where the data is already partially explained and
+    %   we are only concerned with the \emph{residual}, unexplained, covariance.
+    %   We show how the linear probabilistic formulation of this model can be solved
+    %   through a generalised eigenvalue problem, and how it generalises 
+    %   This, convex, \emph{analysis of residuals} is shown to be a generalisation to
+    %   canonical correlation analysis (CCA) and principal components analysis (PCA).
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  \section{Background} \label{sec:chap3_background}
+
+    %     {\color{red} TO DO:}
+    %     \begin{itemize}
+    %       \item[-] {\color{red} A no-maths introduction motivating the framework (parameterisation, heterogeneous data, etc.).}
+    %       \item[-] {\color{red} Reading notation (preliminaries) subsection in Intro section.}
+    %       \item[-] {\color{red} Reference table of instantiations for $\bSigma$.}
+    %       \item[-] {\color{red} Citation regarding GEPs, \citep{DeBie:eigenproblems05}.}
+    %     \end{itemize}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Probabilistic principal component analysis} \label{subsec:chap3_PPCA}
+    %     \subsection{Low-rank plus spherical noise covariance}
+      \textit{Probabilistic principal component analysis} (PPCA) decomposes the covariance of a multivariate random variable $\mb{y} \in \Realspace^p$, into the sum of a low-rank term $\mb{W}\mb{W}^\top$ and a spherical noise term $\sigma^2\mb{I}$. The underlying probabilistic model assumes that each datum is Gaussian-distributed:
+      \begin{equation} \label{equ:chap3_pca_marginal_y}
+	\mb{y} \sim \Normal{\mb{0}}{\mb{W}\mb{W}^\top + \sigma^2 \mb{I}} ~,
+      \end{equation}
+      where, without loss of generality, we center the datapoints (mean is zero) and $\mb{W} \in \Realspace^{p\times q}$, with $q < p$, induces a reduced rank structure on the covariance. Thereby, the log-likelihood of the centered dataset $\mb{Y} \in \Realspace^{n \times p}$ of $n$ datapoints and $p$ features or variables is:
+      \begin{equation} \label{equ:chap3_pca_marginal_Y}
+	p(\mb{Y}) = \prod_{i=1}^n \Normal{ \mb{y}_i \,|\, \mb{0} }{ \mb{W}\mb{W}^\top + \sigma^2 \mb{I}} ~.
+      \end{equation}
+      It was simultaneously and independently conjectured by \citet{Roweis:SPCA97} and proven by \citet{Tipping:ppca96} that this marginal likelihood, as a function of the loadings $\mb{W}$ and for a particular latent dimensionality $k=q$, is maximised when
+      \begin{equation} \label{equ:chap3_pca_solution}
+	\widehat{\mb{W}} = \mb{U}_q \mb{L}_q \mb{R}^\top ~,
+      \end{equation}
+      where $\mb{U}_q$ is the eigenvector matrix with its columns being the $q$ principal (orthonormal) eigenvectors of the sample-covariance matrix
+      \[
+	\widehat{\mb{S}} \triangleq \tfrac{1}{n} \mb{Y}^\top \mb{Y} ~,
+      \]
+      ordered by the magnitudes of the corresponding eigenvalues. The $q \times q$ diagonal matrix $\mb{L}_q$ has elements
+      \begin{equation} \label{equ:chap3_ppca_eigenv}
+	L_{q,ii} = \sqrt{ \lambda_i - \sigma^2 } ~,
+      \end{equation}
+      with $\lambda_i$ being the $i$-th largest eigenvalue of the sample-covariance matrix $\widehat{\mb{S}}$ and $\sigma^2$ being the noise variance, followed by an \emph{arbitrary} orthogonal/rotation matrix $\mb{R}$. Note that the maximum-likelihood solution of the covariance in eq.~\eqref{equ:chap3_pca_marginal_Y}, irrespective of $q$, is expressed in terms of the \emph{singular value decomposition} (SVD, see appendix \ref{sec:app1_Gaussian_identities}) of $\widehat{\mb{W}}$, thus the maximum-likelihood solution  is \emph{rotation-invariant}, that is,
+      \[
+	\widehat{\mb{W}} \widehat{\mb{W}}^\top = (\mb{U}^{~}_q \mb{L}^{~}_q \mb{R}^\top)(\mb{R} \mb{L}^{~}_q  \mb{U}_q^\top)
+	  = \mb{U}^{~}_q \mb{L}^2_q \mb{U}_q^\top
+      \]
+      leads to the same positive semi-definite component in the covariance, for any rotation matrix $\mb{R}$. Intuitively, the matrix $\mb{W}$ spans the \emph{principal subspace} or \emph{latent space} within the data space, with respect to which, the latent subspace basis can have any relative (rigid) rotation that \emph{does not affect} the covariances between the observed variables/features.
+
+      \paragraph{Generative low-rank models} Underlying this model is an assumption that the data set is generated as
+      \[
+	\mb{Y} = \mb{X}\mb{W}^\top + \mb{E} ~,
+      \]
+      where $\mb{X} \in \Realspace^{n\times q}$ is the matrix of the low-dimensional latent representations $\mb{x} \in \Realspace^q$ of the datapoints $\mb{y} \in \Realspace^p$ and $\mb{E}$ is the matrix of noise variables,
+      \[
+	E_{ij} \sim \Normal{0}{\sigma^2} ~.
+      \]
+      
+      We diverge momentarily to note a tight connection to the problem of \emph{multi-output} linear regression,
+      %This is akin to a \emph{multi-output} linear regression problem,
+      \begin{equation} \label{equ:chap3_multi_output}
+	\mb{y}_i = \mb{W} \mb{x}_i + \bepsilon ~.
+      \end{equation}
+      The main difference is that the \emph{input} to the low rank system is now \emph{unknown} (instead of the output and the system has \emph{more outputs} than inputs, hence there is some \emph{redundancy} in the system output.
+      
+      Under this  linear regression view, we can say that the ``outputs" of the low-rank system are \emph{conditionally independent} given the inputs. This redundancy \emph{confounds} the underlying structure of the observed covariates.
+      Loosely speaking:
+      \begin{enumerate}
+	\item[] \emph{Anything said by a set of highly agreeing variables can be equally expressed by fewer variables, up to a small error}.
+	\rightskip2em
+      \end{enumerate}
+      See Figure \ref{fig:toyPCA} for a visualisation. This idea motivated the study of low-rank models like PCA \citetext{\citealp{Jolliffe:pca02}; \citealp{Hotelling:analysis33}; see also \citealp{Pearson:lines1901} for historical purposes}, \textit{factor analysis} \citep{Bartholomew:factor11, Basilevsky:factor94} and \textit{canonical correlation analysis} \citep{Hotelling:relations36} (see section \ref{sec:chap4_reviewCCA} for a review).
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure{
+	  \includegraphics[width=0.5\linewidth]{toyLowRank2}
+	}
+	\caption[PCA on a toy dataset.]{ \label{fig:toyPCA}
+	  The redundancy in the observations (green dots) of A,B and C take the form of a linear manifold (red plane), spanned by the two principal eigenvectors of the sample-covariance (red arrows). The eigen-basis coordinates faithfully represent the original observations.}
+      \end{figure}
+
+      The combination of the linear mapping and Gaussian iid noise assumption gives the data likelihood:
+      \begin{equation}
+	p(\mb{Y} \,|\, \mb{X}, \mb{W}, \sigma^2) = \prod_{i} \Normal{\mb{y}_i \,|\, \mb{W} \mb{x}_i }{~ \sigma^2\mb{I} } ~,
+      \end{equation}
+      where $i$ indexes the rows of $\mb{Y}$ and $\mb{X}$. Then, the marginal likelihood from eq.~\eqref{equ:chap3_pca_marginal_Y} is obtained by inducing a factorised Gaussian spherical prior\footnote{ We can use a $\Normal{\mb{0}}{\mb{I}}$ prior here for simplicity without loss of generality, since the functional form of $p(\mb{Y})$ remains unchanged for a general Gaussian prior.} on (each row-vector of) $\mb{X}$
+      \begin{equation}
+	p(\mb{X}) = \prod_i \Normal{ \mb{x}_i \,|\, \mb{0} }{ \mb{I} }
+      \end{equation}
+      %       such that $\mb{x}_{i,:}\sim\mathcal{N}(0, 1)$.
+      and averaging over $\mb{X}$ with respect to its prior (see appendix \ref{sec:app1_Gaussian_identities}):
+      \begin{equation} \label{equ:chap3_averaging_over_X}
+	p(\mb{Y}) = \int \textrm{d}\mb{X} ~ p(\mb{Y} \,|\, \mb{X}, \mb{W}, \sigma^2) ~ p(\mb{X}) ~,
+      \end{equation}
+      where, for the rest of the chapter, we suppress the parameters of the marginal distribution $p(\mb{Y} \,|\, \mb{W}, \sigma^2)$ to reduce cluttering. The graphical model of PPCA is illustrated in Figure \ref{fig:PPCA_graphical}: The interpretation of the marginal $p(\mb{Y})$ here is that in the system there exists a \emph{fixed}\footnote{As in, non-random.}\addtocounter{footnote}{-1}\addtocounter{Hfootnote}{-1} and \emph{unknown} linear mapping $\mb{W}$ and each \emph{sample} $\mb{y}_i$ is a contribution from a \emph{single} latent point $\mb{x}_i$. The set of features of $\mb{x}_i$ are weighted differently (by a different \emph{row} of $\mb{W}$) for each output or component of $\mb{y}_i$, see eq.~\eqref{equ:chap3_multi_output}.
+
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure{ \label{fig:PPCA_graphical}
+	  \includegraphics[width=0.4\linewidth]{PPCA_graphical}
+	}
+	\subfigure{ \label{fig:dualPPCA_graphical}
+	  \includegraphics[width=0.4\linewidth]{dualPPCA_graphical}
+	}
+	\caption[Graphical model of probabilistic PCA.]{
+	  The shaded nodes distinguish the observed variables from the latent ones.
+	  \textbf{\subref{fig:PPCA_graphical}} Graphical model of probabilistic PCA. The joint distribution factorises across the $n$ datapoints (indexed by $i$) and the conditional likelihood is governed by the \emph{mapping} $\mb{W}$.
+	  \textbf{\subref{fig:dualPPCA_graphical}} Graphical model of dual PPCA. The joint distribution factorises across the $p$ features (indexed by $j$) and the conditional likelihood is governed by the \emph{latent coordinates} $\mb{X}$.
+	}
+      \end{figure}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Dual PPCA}
+      %       \paragraph{Dual PCA}
+      There is also an alternative interpretation of the marginal $p(\mb{Y})$, see Figure \ref{fig:dualPPCA_graphical}: In the system, there exists a \emph{fixed}\footnotemark ~set of latent points $\mb{X}$ and each \emph{output} $\mb{y}^{\prime}_j$ (column of $\mb{Y}$) is a contribution from \emph{all} latent features (columns) in $\mb{X}$, such that
+      \[
+	\mb{y}^{\prime}_j = \mb{X} \mb{w}_j + \bepsilon ~,
+      \]
+      where the columns $\mb{x}_j$ are combined differently (by a different \emph{row} $\mb{w}_j$ of $\mb{W}$) for each output $\mb{y}^{\prime}_j$. This was the motivation for \citet{Lawrence:pnpca05} when he showed that the PCA solution is also obtained for likelihoods of a \emph{dual} form, recovered when we average over the loadings $\mb{W}$ with a (similarly) factorised Gaussian isotropic prior $p(\mb{W}) = \prod_j \Normal{\mb{w}_j \,|\, \mb{0}}{\bSigma_{\mb{w}}}$, with diagonal $\bSigma_{\mb{w}}$, instead of averaging over the latent points $\mb{X}$:
+      \begin{equation} \label{equ:chap3_dualpca_marginal_y}
+	p(\mb{Y}) \!=\! \int \textrm{d}\mb{W} ~ p(\mb{Y} | \mb{X},\! \mb{W}, \!\sigma^2) ~ p(\mb{W})
+	= \prod_{j=1}^p \Normal{\mb{y}^{\prime}_j \,|\, \mb{0}}{ \mb{X} \bSigma_{\mb{w}} \mb{X}^\top + \sigma^2\mb{I}} ~,
+      \end{equation}
+      where $j$ indexes the \emph{columns} of $\mb{Y}$ and the parameters in the marginal likelihood are suppressed as before.
+
+      \paragraph{Identifiability} Because of the diagonal prior covariance $\bSigma_{\mb{w}}$, there is an indeterminacy between $\mb{X}$ and $\bSigma_{\mb{w}}$ in the maximum-likelihood solution, meaning that $\mb{X}\bSigma_{\mb{w}}^{1/2}$ would also be a solution and there is no way to distinguish between the two. A principled way to work around this is to assume that $\mb{X}^\top\mb{X} = \mb{I}$ which is equivalent to seeking a MAP solution for the latent variables under a spherical Gaussian prior on $\mb{x}$; we stick to this approach for the sake of simplicity. The marginal likelihood is now parameterised by the latent points $\mb{X}$ instead of the loadings $\mb{W}$ and the factorisation now implies conditional independences across the $p$ \textit{features}, as opposed to the $n$ datapoints, meaning that the \emph{covariances} are expressed between \emph{datapoints} and not features.
+
+      \paragraph{Dual interpretation} This \emph{dual} formulation of PCA\footnote{This contrasts the typical primal form. The name refers to the \emph{duality} between the sample-space (row-space) and the feature-space (column-space) of a typical design matrix $\mb{Y}$ with its rows as samples.} is also known as \textit{principal coordinate analysis} as it solves for the the \emph{latent coordinates} instead of the principal subspace basis and the maximum-likelihood solution is now:
+      \[
+        \widehat{\mb{X}} = \mb{U}^\prime_q \mb{L}^{~}_q \mb{R}^\top ~,
+      \]
+      where $\mb{L}^{~}_q$ and $\mb{R}$ is defined as in eq.~\eqref{equ:chap3_pca_solution} and the columns of $\mb{U}^\prime_q$ are the first $q$ left-singular vectors of $\mb{Y}$, or equivalently, the $q$ principal eigenvectors of the sample-inner product (feature covariance) matrix $\mb{Y}\mb{Y}^\top$ (see \textbf{SVD}, appendix \ref{sec:app1_linear_algebra}). The rotation $\mb{R}$ introduces a second kind of indeterminacy, but as we discuss in a later section, the rotation is not important (set as the identity) since we most often care about the relative positions of the latent variables.
+
+      \paragraph{Connection to the Gaussian process} The underlying model in eq.~\eqref{equ:chap3_dualpca_marginal_y} is in fact a product of independent \emph{Gaussian processes} with \emph{linear} covariance functions, see section \ref{subsec:chap2_GPmodel} and \citep{Rasmussen:book06}. In this form, the generalisation to a non-linear mapping from the latent space $\mathcal{X}$ to the observed space $\mathcal{Y}$ now seems almost straightforward:
+      \begin{equation*}
+	p(\mb{Y}) = \prod_{j=1}^p \Normal{\mb{y}^{\prime}_j \,|\, \mb{0}}{ \mb{K} + \sigma^2\mb{I}} ~,
+      \end{equation*}
+      where we have replaced the (bi-)linear covariance function, defined by the inner product between samples $\mb{x}^\top \mb{x}^{\prime}$, with a non-linear covariance function $k(\mb{x},\mb{x}^\prime)$, see section \ref{subsec:chap2_covfunc} for an example. The resulting model is known as the \textit{Gaussian process latent variable model} (GPLVM) \citep{Lawrence:pnpca05}, most notably used for non-linear dimensionality reduction \citep{Lawrence:gplvm03}, with Bayesian extensions thereof \citep{Titsias:bayesGPLVM10, Damianou:vgpds11}. % and applications in learning from multiple sources of data \citep{Ek:pose07}.
+
+    \section{Low-rank plus positive definite covariance} \label{sec:chap3_LRPDcovariance}
+      Both primal and dual interpretations involve maximising Gaussian likelihoods of a similar covariance structure, namely, that of a \textit{low-rank plus a spherical noise} term.
+      In many parts of this chapter we motivate the framework while focusing on the dual case,
+      \[
+	\mb{X}\mb{X}^\top + \sigma^2\mb{I} ~,
+      \]      
+      without loss of generality for the primal case.
+      Where possible, we give the primal cases of the equations as well.
+      The focus of this chapter is a more general form of the above covariance structure given by
+      \begin{align}
+	\textrm{dual:} \quad &\mb{X}\mb{X}^\top + \bSigma \\
+	\textrm{primal:} \quad &\mb{W}\mb{W}^\top + \bSigma ~,
+      \end{align}
+      where $\bSigma$ is a \emph{positive definite} matrix. We are motivated by scenarios where the data variance is already \emph{partly explained} by the covariance term $\bSigma$ and we wish to study the components of the \emph{residual variance}. We show that our ideas can be applied for both primal and dual representations and the representation of choice depends on the information that we wish to encode in $\bSigma$.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Motivating examples} \label{subsec:chap3_motivation}
+      Consider the general functional form of a \textit{linear mixed-effects} model \citep{Pinheiro:mixed2000} with two factors $\mb{X}, \mb{Z}$ and noise $\mb{E}$: % (Figure \ref{fig:rca}),
+      \begin{equation} \label{equ:chap3_linearmodel}
+	\mb{Y} = \mb{X}\mb{W}^\top + \mb{Z}\mb{V}^\top + \mb{E} ~,
+      \end{equation}
+      where $\mb{Z}$ is a matrix of known covariates (\textit{fixed} effects) with some predictive power for $\mb{Y}$, and $\mb{X}$ is a matrix of latent variables (\textit{random} effects), see also \citep{Fusi:genomics12} for an application with Gaussian processes on genome-wide association studies.
+      This linear mixed-effects model will serve as a conceptual reference point for the rest of this chapter and it is illustrated in Figure \ref{fig:rca}. In this section, we mention a few specific forms that eq.~\eqref{equ:chap3_linearmodel} can take for various applications including one of visualisation and computational biology.
+      
+      \begin{figure}[!htbp]
+	\centering
+	\subfigure[]{
+	  \label{fig:rca}
+	  \includegraphics[width=0.27\linewidth]{rca2}
+	}
+	\subfigure[]{
+	  \label{fig:cca}
+	  \includegraphics[width=0.27\linewidth]{cca2}
+	}
+	\subfigure[]{  
+	  \label{fig:multiview}
+	  \includegraphics[width=0.386\linewidth]{rca_cca2}
+	}
+	\caption[Graphical linear models of mixed-effects, CCA and multi-view.] {
+	  \textbf{\subref{fig:rca}} A linear mixed-effects model. \emph{ Fixed effects} $\mb{z}$ partially explain the variance in the observation $\mb{y}$ through the mapping defined by $\mb{V}$. The \emph{residual variance} is then explained by \emph{random effects} $\mb{x}$ up to noise. \textbf{\subref{fig:cca}} Probabilistic CCA model. Observations $\mb{y}_1$ and $\mb{y}_2$ share the latent variable $\mb{z}$, thus the variance in the joint data is explained solely by $\mb{z}$ up to noise. In other words, the model assumes no structure within $\mb{y}_1$ or $\mb{y}_2$ but only \emph{between} their two covariate sets. \textbf{\subref{fig:multiview}} Linear \textit{multi-view learning} model, also known as \textit{inter-battery factor analysis} \citep[IBFA,][]{Tucker:interbattery58, Klami:generative06, Ek:ambiguity08} , where observations $\mb{y}_1$ and $\mb{y}_2$ \emph{share} the latent variable $\mb{z}$ but also have \emph{private} latent variables $\mb{x}_1$ and $\mb{x}_2$ respectively.}
+      \end{figure}
+      
+      Akin to averaging over the loadings $\mb{W}$ as we did in eq.~\eqref{equ:chap3_dualpca_marginal_y} (or over the factors $\mb{X}$ as in eq.~\eqref{equ:chap3_averaging_over_X}), in the mixed-model case we can also average over the loadings $\mb{V}$ (or factors $\mb{Z}$ for the primal) to recover the likelihood:
+      \begin{equation}  \label{equ:chap3_marginalY}
+	\begin{split}
+	  \textrm{(\textbf{dual})} \qquad p(\mb{Y}) &= \prod_{j=1}^p \Normal{ \mb{y}^{\prime}_j \,|\, \mb{0} }{ \mb{X}\mb{X}^\top + \bSigma} \\
+	  \textrm{(\textbf{primal})} \qquad p(\mb{Y}) &= \prod_{i=1}^n \Normal{ \mb{y}_i \,|\, \mb{0} }{ \mb{W}\mb{W}^\top + \bSigma} ~,
+	\end{split}
+      \end{equation}
+      where the positive definite matrix $\bSigma$ assumes the role of the \emph{explained variance}:
+      \[
+	\begin{split}
+	  \textrm{(\textbf{dual})} \qquad &\bSigma = \mb{Z}\mb{Z}^\top + \sigma^2\mb{I} \\
+	  \textrm{(\textbf{primal})} \qquad &\bSigma = \mb{V}\mb{V}^\top + \sigma^2\mb{I} ~.
+	\end{split}
+      \]
+
+      For instance, the representation of $\mb{Y}$ in eq.~\eqref{equ:chap3_linearmodel} can manifest as:
+      \begin{enumerate}[(a)]
+	\item \label{item:scenario1}
+	  a set of protein activation signals under various external stimuli (which make the data heterogeneous). In this \emph{primal} scenario, $\mb{V}$ is the identity matrix and there are as many effects (columns) in $\mb{Z}$ as there are covariates in $\mb{Y}$. The factors in $\mb{Z}$ are special in that they share a \emph{sparse} network of \emph{conditional dependencies}. Sparse dependencies are interesting in terms of learning parsimonious models but in realistic scenarios the sparsity can be \emph{confounded} by the heterogeneous experimental conditions (the various stimuli) under which $\mb{Y}$ is generated. We encode these \emph{confounders} as the factors (columns) of $\mb{X}$. Intuitively, if the confounders are fewer than our observed covariates and the confounders somehow affect the observed space in a linear fashion $\mb{X}\mb{W}^\top$, then the variance explained solely by $\mb{X}$ is a \emph{low-rank} term in the marginal covariance, see eq.~(\ref{equ:chap3_marginalY}, primal). Another way to 
+argue about this is by seeing how the nominal values of our activation signals are \emph{forced} to diverge from their otherwise true values: Because there are always fewer confounders than covariates, there is \emph{redundancy} in the way the confounders express in the observed space and, consequently, a low-rank structure in the covariance of our measurements.
+
+	  Returning to the sparse dependencies, we are led to parameterise the explained covariance term as:
+	  \begin{equation} \label{equ:chap3_SigmaGL}
+	    \bSigma_{GMRF} = \bLambda^{-1} ~,
+	  \end{equation}
+	  where $\bLambda$ is sparse, thus recovering a \emph{low-rank plus sparse-inverse} parameterisation of the covariance in eq.~\eqref{equ:chap3_marginalY}. A sparse precision inscribes a sparsely connected \textit{Gaussian Markov random field} (GMRF) or a \textit{Gaussian graphical model} of the factors in $\mb{Z}$, such that each row $\mb{z}_i$ is distributed from $\Normal{ \mb{0} }{ \bLambda^{-1} }$, where the precision matrix $\bLambda$ is sparse \citep{Lauritzen:graphical96};
+%	\item \label{item:scenario2}
+%	  {\color{red} MOCAP example...}
+	\item \label{item:scenario3}
+	  a set of $n$ gene expression profiles as rows, where each profile concatenates two time-series of $p_1$ timepoints sampled under control conditions plus $p_2$ timepoints sampled under test conditions. In this \emph{dual} scenario, the instantiation
+	  \begin{equation*}
+	    \bSigma_{Gram} = \mb{K} + \sigma^2\mb{I} ~,
+	  \end{equation*}
+	  for a general \textit{Gram} matrix $\mb{K}$, expresses temporal correlations in a time-series dataset, with $K_{ij}=k(\mb{z}_i,\mb{z}_j)$ for some covariance function $k:\Realspace^p \times \Realspace^p \rightarrow \Realspace$. This approach gets close to the common practice of explicitly subtracting the result of a simpler model from the data and then analyzing the residual separately;
+	\item \label{item:scenario4}
+	  a set of $n$ patients' gene expression measurements of $p$ genes, with each row of $\mb{Z}$ being the set of genotypes\footnote{ For example, SNP (single-nucleotide polymorphism) data.} of each patient and each row of $\mb{X}$ being some unobserved environmental effects (confounders), see \citep{Fusi:genomics12}.
+      \end{enumerate}
+
+      In each of these cases, the benefit of analysing the components of the \textit{residual} variance $\mb{X}\mb{X}^\top$ (primal: $\mb{W}\mb{W}^\top$), given the \textit{explained} variance $\bSigma$ or some estimate thereof, is twofold: on the one hand, learning about the confounders and potentially correcting our data for their effects and on the other hand, learning $\bSigma$ when we restrict it to a specific type of structure (e.g. sparse-inverse). This raises the following two questions:
+      \begin{enumerate}
+	\item \textit{Given $\bSigma$, how can we solve for $\mb{X}$ (respectively $\mb{W}$)?}
+	\rightskip2em
+      \end{enumerate}
+      And more importantly:
+      \begin{enumerate}
+	\item[2.] \textit{For what forms of $\bSigma$ can we formulate useful new algorithms for machine learning?}.
+	\rightskip2em
+      \end{enumerate}
+      We refer to the forms of $\bSigma$ as \textit{instantiations} for the rest of this chapter and denote them by a subscript.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Proposed approach} \label{subsec:chap3_approach}
+      First, the key theoretical result of this chapter in Section \ref{subsec:chap3_RCAproof} shows that the maximum-likelihood solution for $\mb{X}$ (primal: $\mb{W}$) is simply based on a \textit{generalised eigenvalue problem} (GEP) of the sample-covariance matrix and explained covariance $\bSigma$. Hence, the low-rank term $\mb{X}\mb{X}^\top$ of the marginal covariance can be optimized for an arbitrary fixed positive definite $\bSigma$. We call this data analysis approach \textit{residual component analysis} (RCA). \citet{DeBie:eigenproblems05} present a nice review on a range of GEPs in the machine learning literature.
+
+      Secondly, from a unification viewpoint the RCA approach is interesting as it connects a few classical methods and their probabilistic counterparts in the literature and also gives rise to a range of new algorithms suited for the aforementioned scenarios. For instance, for scenario (\ref{item:scenario1}) we propose an EM/RCA hybrid algorithm in section \ref{subsec:chap5_EMRCA} for estimating both the low-rank and sparse-inverse terms. For scenario (\ref{item:scenario4}) we present a pure RCA treatment in Section \ref{sec:chap5_GEdifferences}: the residual basis of interest is found with a single estimate via the GEP solution. The focus of chapter \ref{chap5:RCAapps} and is on demonstrating the effectiveness of the algorithms on a variety of datasets and application domains.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Background} \label{subsec:chap3_related_work}
+      \paragraph{GLASSO} The \textit{low-rank plus inverse-sparse}
+      parameterisation, by eqs.~(\ref{equ:chap3_marginalY}-\ref{equ:chap3_SigmaGL}), extends the \textit{Graphical Lasso} (GLASSO) algorithm \citep{Friedman:sparse08, Banerjee:model2008}. GLASSO is a MAP approach to maximising the Gaussian likelihood, as a function of the covariance, with an \textit{$l_1$-penalty} (sparsity-promoting) term on the precision matrix $\bLambda$:
+      \begin{equation} \label{equ:chap3_P1}
+	% \tag{P1}
+	% \ln p(\mb{Y}|\bLambda) \quad \propto \quad
+	\underset{\bLambda}{ \textrm{max} } ~ \left\{ \ln \verts{\bLambda} - \textrm{tr}( \widehat{\mb{S}} \bLambda ) - \lambda \norm{\bLambda}_{1} \right\} ~,
+      \end{equation}
+      where $\widehat{\mb{S}}$ is the sample-covariance matrix.
+      Due to the L1 restriction on the solution norm, the stationarity conditions no longer have a closed form.
+      Nonetheless, the problem is still convex and a global solution is found efficiently through the iterative use of \textit{least angle regression} \citep{Hastie:elements09}.
+      %, see also section \ref{subsec:} for more details on the GLASSO algorithm.
+      Sparse-inverse structures capture relations between variables that are not well characterized by low-rank forms.
+      As such, the combination of sparse-inverse and low-rank can be a powerful one with applications in computational biology and visualisation, as we demonstrate in chapter \ref{chap5:RCAapps}.
+      We also point to the work of \citet{stegle:efficient11} for a different approach based on a multiplicative --- Kronecker product --- structure in the covariance.
+
+      \paragraph{PPCA} We also note a few more connections to well-studied algorithms for linear dimensionality reduction. The obvious connection to PPCA is recovered by
+      \[
+	\bSigma_{PCA} = \sigma^2 \mb{I} ~.
+      \]
+%      {\color{red} [ THIS MIGHT BE INCORRECT. INSTEAD CITE TO THE LOW RANK + SPARSE LITERATURE ...]}
+      \paragraph{Bi-directed graphs} If the covariance term $\bSigma$ is assumed to be \textit{sparse} (as opposed to sparse-\textit{inverse}), then this relates to the problem of structure learning for Gaussian bi-directed graphs \citep{Silva:ADMGStructure11}.
+      Such graphs encode constraints of marginal independence and are of interest due to being closed under marginalisation (that is, the graph retains its set of independencies over the remaining variables), \citep{Richardson:Ancestral02}.
+%      \textit{robust-PCA} framework \citep{Candes:rpca09}.
+
+      \paragraph{PCCA} More interestingly, \textit{probabilistic canonical correlation analysis} (PCCA) \citep{Bach:pcca05, Bach:kica02} is recovered by
+      \begin{equation*}
+	\bSigma_{CCA} = \mat{ \mb{Y}^\top_1 \mb{Y}^{~}_1 &\mb{0} \\ \mb{0} &\mb{Y}^\top_2 \mb{Y}_2^{~} } ~, %+ \sigma^2\mb{I} ~,
+	\quad \textrm{for the concatenation} \quad \mb{Y} = \mat{ \mb{Y}_1 \\ \mb{Y}_2 }.
+      \end{equation*}
+      We prove this non-trivial statement in section \ref{sec:chap4_CCAasRCA}.
+
+      \paragraph{Inter-battery factor analysis} On a similar note, if
+      \begin{equation*}
+	\mb{Y}
+	= \mat{ \mb{X}_1\mb{W}_1^\top + \mb{Z}\mb{V}_1^\top + \mb{E}_1 \\ \mb{X}_2\mb{W}_2^\top + \mb{Z}\mb{V}_2^\top + \mb{E}_2 } ~,
+      \end{equation*}
+      then the partitions of $\mb{Y}$ have their own associated private latent spaces of $\mb{X}_{1}$ and $\mb{X}_{2}$, in addition to the standard shared latent space of $\mb{Z}$ found in CCA, see Figure \ref{fig:multiview}. This is in fact a special case of the \textit{multi-view learning} model of \citet{Ek:ambiguity08}; the linear case was more closely studied by \citet{Klami:dependencies08,Klami:generative06} and is known as \textit{extended probabilistic-CCA}. In the statistics literature the model is known as \textit{inter-battery factor analysis} (IBFA) \citep{Tucker:interbattery58, Browne:maximum79}.
+      %{\color{red} [Also, mention Collective matrix factorisation, see citation in BCCA draft.]}
+      To train this type of model, an \textit{iterative} treatment of RCA can be formulated;
+      we give an outline here: on step one, solve for the weights $\mb{V}$ of the \textit{shared components} by setting the explained covariance term as
+      \[
+	\bSigma_{IBFA} = \mat{ \mb{W}^{~}_1 \mb{W}_1^\top & \mb{0} \\ \mb{0} & \mb{W}^{~}_2\mb{W}_2^\top } + \sigma^2\mb{I}
+      \]
+      in the GEP of the concatenated data sample-covariance matrix. On step two, for each of $d \in \{1,2\}$ views solve for the weights $\mb{W}_d$ of the view-specific components by setting
+      \[
+	\bSigma_{IBFA}^{~} = \mb{V}_d^{~} \mb{V}_d^\top + \sigma^2\mb{I}
+      \]
+      in the GEP of the sample-covariance associated with $\mb{Y}_k$. This \textit{iterative-RCA} algorithm is reminiscent of the expectation-maximization (EM) algorithm for optimising extended-PCCA, as both approaches maximise the likelihood by fitting components into the residual. We provide more details of \textit{iterative-RCA} algorithm in section \ref{sec:chap4_IBFA_viaRCA}.
+
+      \paragraph{Coloured noise models}	Lastly, we mention a link to existing work on \textit{coloured noise} models from the signal processing literature, that is, linear models that assume a full noise matrix in the marginal covariance \citep{Chen:subspace06, Hu:subspace03}. Such models mitigate noise effects by performing \emph{oblique} (non-orthogonal) projections of the data \emph{onto} the signal subspace but \textit{along the direction of} the noise subspace \citep{Behrens:signal94}. As we discuss in section \ref{subsec:chap3_PCA_equiv}, oblique projections have an important role in interpreting the proof of the RCA theorem as well as providing a \emph{geometric interpretation} of RCA as a data analysis tool. Ultimately, it turns out that the GEP of RCA is strongly tied to an oblique projection as it estimates either the oblique-projected data (dual) or the projection basis (primal), but the theorem is novel as it introduces a probabilistic interpretation of the recovered oblique projector subspace in 
+the same way that PPCA enriched classical PCA, for both primal and dual representations.
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Maximum-likelihood residual component analysis} \label{sec:chap3_optimising}
+
+    We show the main theoretical results on the dual case, without loss of generality for the primal case.
+    %     A detailed proof of the following theorem is provided in Appendix \ref{subsec:chap3_RCAproof}.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{RCA theorem} \label{subsec:chap3_RCAproof}
+
+      \paragraph{Dual case theorem}
+      \begin{enumerate}
+	\item[] \textit{ For a positive-definite $\bSigma$ with a spectral radius at most as large as that
+	of ~$\tfrac{1}{p} \mb{Y} \mb{Y}^\top$,
+	the maximum-likelihood estimate of the parameters $\mb{X}$ of the marginal ~
+	$p(\mb{Y}) = \prod_{j=1}^p \Normal{ \mb{y}^{\prime}_j \,|\, \mb{0} }{ \mb{X}\mb{X}^\top + \bSigma}$~ is}
+	\rightskip2em
+	\begin{equation} \label{equ:chap3_theorem}
+	  \widehat{\mb{X}} = \bSigma \mb{S} ( \mb{D} - \mb{I} )^{1/2} ~,
+	\end{equation}
+	\textit{where $\mb{S}$ is the solution to the GEP,}
+	\begin{equation} \label{equ:chap3_GEP}
+	  \tfrac{1}{p} \mb{Y} \mb{Y}^\top \mb{S} = \bSigma \mb{S} \mb{D}~,
+	\end{equation}
+	\textit{and its columns are the \textit{generalised eigenvectors} (of ~$\tfrac{1}{p} \mb{Y} \mb{Y}^\top$
+	and $\bSigma$) and $\mb{D}$ is the diagonal matrix of the corresponding generalised eigenvalues}.
+      \end{enumerate}
+
+      \paragraph{Proof} % \label{app:RCAproof}
+      The log-marginal likelihood $\ln p(\mb{Y})$, as a function of the latent variables $\mb{X}$, is:
+      \begin{align*} \label{equ:chap3_logmarginalY}
+        L(\mb{X}) = -\frac{p}{2} \ln \verts{\mb{K}} - \frac{1}{2}\mathrm{tr}\left(\mb{Y}\mb{Y}^\top \mb{K}^{-1}\right) - \frac{np}{2}\ln(2\pi) ~,
+      \end{align*}
+      where $\mb{K} \triangleq \mb{X}\mb{X}^\top + \bSigma$. Since $\bSigma$ is positive-definite, we can consider its eigen-decomposition:
+      \begin{equation} \label{equ:chap3_sigmadecomp}
+	\bSigma = \mb{U} \bLambda \mb{U}^\top,
+      \end{equation}
+      where $\mb{U}^\top \mb{U} = \mb{U} \mb{U}^\top = \mb{I}$ and $\bLambda$ is diagonal (see appendix \ref{sec:app1_linear_algebra}).
+
+      We proceed by rotating the marginal covariance $\mb{K}$ from the data-space basis to the eigen-basis $\mb{U}$ and scaling by the eigenvalues $\bLambda$:
+      \begin{equation} \label{equ:chap3_projectedK}
+        \begin{split}
+	  \widetilde{\mb{K}} &\triangleq \bLambda^{-1/2} \mb{U}^\top \mb{K} \mb{U} \bLambda^{-1/2} \\
+	  &= \bLambda^{-1/2} \mb{U}^\top \left(\mb{X}\mb{X}^\top + \bSigma \right) \mb{U} \bLambda^{-1/2} \\
+	  &= \left(\bLambda^{-1/2} \mb{U}^\top \mb{X}\right) \left(\mb{X}^\top \mb{U} \bLambda^{-1/2}\right) + \mb{I} \\
+	  &= \widetilde{\mb{X}} \widetilde{\mb{X}}^\top + \mb{I} ~,
+        \end{split}
+      \end{equation}
+      where we have defined the rotated and scaled latent points
+      \begin{equation} \label{equ:chap3_tranformed_X}
+	\widetilde{\mb{X}} \triangleq \bLambda^{-1/2} \mb{U}^\top \mb{X} ~.
+      \end{equation}
+      %       and its inverse,
+      %       \begin{equation} \label{equ:chap3_Kinvhat} 
+      % 	\widetilde{\mb{K}}^{-1} = \bLambda^{1/2} \mb{U}^\top \mb{K}^{-1} \mb{U} \bLambda^{1/2} ~.
+      %       \end{equation}
+      Therefore, from the inverse-transformation of $\mb{K}$ in eq.~\eqref{equ:chap3_projectedK} we get the determinant and trace
+      \begin{align*} \label{equ:chap3_det}
+	\verts{\mb{K}} &= \verts{\widetilde{\mb{K}}} \verts{\bLambda} \\
+	\mathrm{tr} \left( \mb{Y} \mb{Y}^\top \mb{K}^{-1} \right)
+	&= \mathrm{tr} \left( \bLambda^{-1/2} \mb{U}^\top \mb{Y}\mb{Y}^\top \mb{U} \bLambda^{-1/2} \widetilde{\mb{K}}^{-1} \right) \\
+	&= \mathrm{tr} \left( \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \widetilde{\mb{K}}^{-1} \right) ~,
+      \end{align*}
+      where, in a similar manner, we have transformed the data
+      \begin{equation} \label{equ:chap3_tranformed_Y}
+	\widetilde{\mb{Y}} \triangleq \bLambda^{-1/2} \mb{U}^\top \mb{Y} ~.
+      \end{equation}
+
+      Now we are in position to re-parameterise the log-marginal likelihood as a function of the \emph{transformed} variables $\widetilde{\mb{X}}$ and $\widetilde{\mb{Y}}$:
+      % from eq. \eqref{eq:logmarginalY} as
+      \begin{equation*} \label{equ:chap3_translmlY}
+	L(\widetilde{\mb{X}}) =
+        -\frac{p}{2} \ln \left( \verts{\widetilde{\mb{K}}} \verts{\bLambda} \right)
+	- \frac{1}{2} \mathrm{tr} \left( \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \widetilde{\mb{K}}^{-1} \right)
+	- \frac{np}{2} \ln(2\pi) ~.
+      \end{equation*}
+
+      We know how to maximize this new form of the log-likelihood, by following a route similar to the proof of \citet{Tipping:ppca96}: Taking the gradient with respect to the new parameters $\widetilde{\mb{X}}$ (see \textbf{Matrix derivatives}, appendix \ref{sec:app1_matrix_derivarives}),
+      % take the gradient of the likelihood with respect to
+      \begin{equation*}
+        \frac{\partial L}{\partial \widetilde{\mb{X}}}
+	= \widetilde{\mb{K}}^{-1} \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \widetilde{\mb{K}}^{-1} \widetilde{\mb{X}} - p~ \widetilde{\mb{K}}^{-1} \widetilde{\mb{X}} ~,
+      \end{equation*}
+      gives the stationary point
+      \begin{equation}  \label{equ:chap3_derivative2}
+	\widetilde{\mb{X}} = \frac{1}{p} \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \widetilde{\mb{K}}^{-1} \widetilde{\mb{X}} ~.
+      \end{equation}
+      Next, we replace $\widetilde{\mb{X}}$ in eq.~\eqref{equ:chap3_derivative2} with its SVD,
+      \begin{equation} \label{equ:chap3_latentdecomp}
+	\widetilde{\mb{X}} = \widetilde{\mb{V}} \mb{L} \mb{R}^\top ~,
+      \end{equation}
+      which gives
+      \begin{equation*}
+	\widetilde{\mb{V}}\mb{L}\mb{R}^\top
+	= \frac{1}{p} \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \left( \widetilde{\mb{V}} \mb{L}^{2} \widetilde{\mb{V}}^\top + \mb{I} \right)^{-1} \widetilde{\mb{V}} \mb{L} \mb{R}^\top ~.
+      \end{equation*}
+      By applying\footnote{Here, it is assumed that $\mb{L}$ is square and diagonal and $\widetilde{\mb{V}}$ is rectangular. If we start this step with an orthonormal $\widetilde{\mb{V}}$ but rectangular $\mb{L}$
+      then we end up with $\widetilde{\mb{V}}_q$ in eq. \eqref{equ:chap3_eigenproblem},
+      keeping only the first $q$ columns.}
+      the \emph{Woodbury matrix identity} (see appendix \ref{subsec:app1_Woodbury}) and simplifying, we see that maximisation relies on the \emph{regular eigenvalue problem}:
+      % \end{equation*}
+      \begin{equation}\label{equ:chap3_eigenproblem}
+        \begin{split}
+	  \frac{1}{p} \widetilde{\mb{Y}} \widetilde{\mb{Y}}^\top \widetilde{\mb{V}} = \widetilde{\mb{V}} \mb{D},
+	  \quad \textrm{where} \quad \mb{D} \triangleq \mb{L}^{2} + \mb{I} ~.
+        \end{split}
+      \end{equation}
+      Now, we focus on relating the stationary point of $\widetilde{\mb{X}}$ to that of $\mb{X}$. First, we express the eigenvalue problem of eq.~\eqref{equ:chap3_eigenproblem} in terms of $\mb{Y}\mb{Y}^\top$. To do that, we use the definition of $\widetilde{\mb{X}}$ from eq.\eqref{equ:chap3_tranformed_X} to obtain the SVD of $\mb{X}$:
+      \begin{equation} \label{eq:svdrelations}
+        \mb{X} = \left( \mb{U} \bLambda^{1/2} \widetilde{\mb{V}} \right) \mb{L} \mb{R}^\top = \mb{V} \mb{L} \mb{R}^\top ~,
+	% 	\quad \textrm{where} \quad \mb{T} \triangleq \mb{U} \bLambda^{1/2} \widetilde{\mb{V}} ~.
+      \end{equation}
+      where $\mb{V} \triangleq \mb{U} \bLambda^{1/2} \widetilde{\mb{V}}$ are the left-singular vectors of $\mb{X}$. This makes explicit the relationship between the row-spaces of $\mb{X}$ and $\widetilde{\mb{X}}$. Then, we substitute $\mb{\widetilde{Y}}$ and $\mb{\widetilde{V}}$ with their definitions in eq.\eqref{equ:chap3_eigenproblem} and use the inverse of $\bSigma$ from eq.\eqref{equ:chap3_sigmadecomp} to recover the equivalent eigenvalue problem:
+      \begin{equation*}
+        \begin{split}
+          \tfrac{1}{p} \left( \bLambda^{-1/2} \mb{U}^\top \mb{Y} \right) \left( \mb{Y}^\top \mb{U} \bLambda^{-1/2} \right) \left( \bLambda^{-1/2} \mb{U}^\top \mb{V} \right)
+	  &= \left( \bLambda^{-1/2} \mb{U}^\top \mb{V} \right) \mb{D} \\
+	  \tfrac{1}{p} \mb{Y} \mb{Y}^\top \left( \mb{U} \bLambda^{-1} \mb{U}^\top \right) \mb{V} &= \mb{V}\mb{D} \\
+	  \tfrac{1}{p} \mb{Y} \mb{Y}^\top \bSigma^{-1} \mb{V} &= \mb{V} \mb{D} ~.
+        \end{split}
+      \end{equation*}
+
+      To conclude the proof, we define $\mb{S} \triangleq \bSigma^{-1} \mb{V}$ to recover the desired \textit{symmetric} form of the GEP:
+      % So far, $\mb{T}$ is solved via a non-symmetric eigenvalue problem. Assuming
+      % that $\bSigma$ is positive-definite (i.e. invertible),
+      \begin{equation*} \label{equ:chap3_rcaeigenproblem}
+        \frac{1}{p} \mb{Y} \mb{Y}^\top \mb{S} = \bSigma \mb{S} \mb{D} ~.
+      \end{equation*}
+      Based on the SVD of $\mb{X}$ in eq.~\eqref{eq:svdrelations}, now we can recover $\mb{X}$ up to rotation $\mb{R}$ --- which for simplicity is normally set to the identity --- and rank $q$ via the first $q$ generalised eigenvectors of $\mb{Y}\mb{Y}^\top$:
+      \begin{align*} \label{equ:chap3_recoveredX}
+	\tag*{$\square$}
+        \mb{X}_q \quad
+	= \quad \mb{V}_q \mb{L}_q \quad
+	= \quad \bSigma \mb{S}_q \mb{L}_q \quad
+	= \quad \bSigma \mb{S}_q (\mb{D}_q - \mb{I})^{1/2} ~.
+      \end{align*}
+
+      \paragraph{Primal case theorem} The algebraic symmetry between the primal and dual formulations of the marginal likelihood, eq.~\eqref{equ:chap3_marginalY}, allows us to easily extend the theorem to the primal case. Specifically,
+      \begin{enumerate}
+	\item[] \textit{the maximum-likelihood solution of the parameters ~$\mb{W}$~ of the marginal $p(\mb{Y}) = \prod_{i=1}^n \Normal{ \mb{y}_j \,|\, \mb{0} }{ \mb{W}\mb{W}^\top + \bSigma}$, has the same functional form},
+	\rightskip2em
+	\begin{equation} \label{equ:chap3_rca_solution}
+	  \widehat{\mb{W}} = \bSigma \mb{S} (\mb{D} - \mb{I})^{1/2} ~,
+	\end{equation}
+	\textit{where the columns of $\mb{S}$ are the generalised eigenvectors of the GEP:}
+	\begin{equation} \label{equ:chap3_rcaeigenproblem_primal}
+	  \frac{1}{n} \mb{Y}^\top \mb{Y} \mb{S} = \bSigma \mb{S} \mb{D} ~.
+	\end{equation}
+      \end{enumerate}
+
+      \paragraph{Commentary} To summarise the proof strategy, we start with the marginal $p(\mb{Y})$ with a \textit{low-rank plus full noise} covariance structure and we re-express it in terms of a \textit{low-rank plus spherical noise} covariance, by essentially rotating and scaling the data-space as per the spectral decomposition of the explained covariance term $\bSigma$. This results in the transformed marginal\footnote{This is a linear transformation of the distribution domain, so the mode is preserved after the transformation.} $p(\widetilde{\mb{Y}})$ with a \textit{low-rank plus diagonal noise} covariance structure, as in PPCA. At this point, we can use the main result of \citet{Tipping:ppca96} to compute the maximum-likelihood estimate of the parameters of the new distribution. Finally, using the estimates and their relation to the original parameters, we can solve for the parameters of the original distribution.
+
+      Aside from the generality of $\bSigma$, we note a subtle difference from the PPCA solution for $\mb{W}$ in eq.~(\ref{equ:chap3_pca_solution}, p.~\pageref{equ:chap3_pca_solution}): Whereas PPCA in eq.~\eqref{equ:chap3_ppca_eigenv} explicitly subtracts the noise variance from the $q$ retained principal eigenvalues, RCA in eq.~\eqref{equ:chap3_projectedK} implicitly incorporates any noise terms into $\bSigma$ and \emph{standardises} them when it projects the total covariance onto the eigen-basis of $\bSigma$. Thus we get a reduction of unity from the retained generalised eigenvalues in eq.~\eqref{equ:chap3_theorem}. As we discuss in more detail in section \ref{sec:chap4_CCAasRCA}, for $\bSigma=\mb{I}$ the PPCA and RCA solutions are the same.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Posterior expectation as an oblique projection} \label{subsec:chap3_RCA_posterior}
+    %     \subsection{Inverse-mapping: inferring the latent variables} \label{app:RCA_posterior_density}
+      We know how to learn the mapping from the latent to the observed space and now we wish to infer the distribution over the latent variables; we use the primal picture for this, see Figure \ref{fig:rca}, p.~\pageref{fig:rca}.
+
+      Specifically, we wish to infer the posterior mean and covariance of $p(\mb{x}|\mb{y})$: By Bayes' theorem and conjugacy (both the likelihood $p(\mb{y}|\mb{x})$ and prior $p(\mb{x})$ are Gaussian), the posterior distribution $p(\mb{x}|\mb{y})$ is also Gaussian. Hence, computing the posterior relies on completing the square in the exponent of the joint distribution:
+      \begin{equation*}
+	p(\mb{x} \,|\, \mb{y}) ~\propto~ p(\mb{y} \,|\, \mb{x}) ~ p(\mb{x})
+	~=~ \Normal{\mb{y} \,|\, \mb{W}\mb{x}}{\bSigma} ~ \Normal{\mb{x} \,|\, \mb{0}}{\mb{I}} ~,
+      \end{equation*}
+      where $\mb{y}$ is a centered datapoint and in the likelihood we have averaged over the fixed effects $\mb{z}$ so the explained covariance becomes $\bSigma = \mb{V}\mb{V}^\top + \sigma^2\mb{I}$. Isolating the quadratic and linear terms in $\mb{x}$ in the exponent,
+      \begin{equation*}
+	\begin{split}
+	  \ln p(\mb{x} | \mb{y}) ~ &\propto ~ -(p+1)\ln(2\pi) \,-\, \verts{\bSigma} \,-\, (\mb{y}-\mb{W}\mb{x})^\top \bSigma^{-1}(\mb{y}-\mb{W}\mb{x}) \,-\, \mb{x}^\top\mb{x}  \\
+	  &= ~ C \,-\, \mb{y}^\top \bSigma^{-1} \mb{y} \,+\, 2\mb{x}^\top \mb{W}^\top \bSigma^{-1} \mb{y} \,-\, \mb{x}^\top(\mb{W}^\top \bSigma^{-1}\mb{W} + \mb{I})\mb{x} ~,
+	\end{split}
+      \end{equation*}
+      gives the covariance and mean of the posterior distribution $p(\mb{x}|\mb{y})$:
+      \begin{equation} \label{equ:chap3_posterior}
+	\begin{split}
+	  \bSigma_{\mb{x}|\mb{y}} &= (\mb{W}^\top \bSigma^{-1} \mb{W} + \mb{I})^{-1} \\
+	  \E{\mb{x}|\mb{y}} &=  \bSigma_{\mb{x}|\mb{y}} \mb{W}^\top\mb{\Sigma}^{-1}\mb{y} ~.
+	\end{split}
+      \end{equation}
+
+      Similarly in the dual picture, Figure \ref{fig:dualPPCA_graphical} (recall that $\bSigma = \mb{Z}\mb{Z}^\top + \sigma^2\mb{I}$), we learn the latent coordinates $\mb{X}$ via RCA and then we can infer the posterior over a loadings vector $\mb{w}$ conditioned on a particular output $\mb{y}^{\prime}$:
+      \begin{equation*}
+	\begin{split}
+	  \bSigma_{\mb{w}|\mb{y}^\prime} &= (\mb{X}^\top \bSigma^{-1} \mb{X} + \mb{I})^{-1} \\
+	  \E{\mb{w}|\mb{y}^\prime} &=  \bSigma_{\mb{x}|\mb{y}^\prime} \mb{X}^\top\mb{\Sigma}^{-1}\mb{y}^\prime ~.
+	\end{split}
+      \end{equation*}
+
+      The take-away message of this section is that when $\bSigma = \mb{I}$ (reduced to PCA), the posterior expectation can be seen as the coordinates part\footnote{One way the projection formula can be broken down is [\emph{Basis of subspace in $\Realspace^{p}$ as the coordinate system}] $\times$ [\emph{Coordinates}].} of an orthogonal projection on the column space of $\mb{W}$ with a bias towards zero due to the Gaussian prior. Similarly, what is reflected from the functional form of the posterior expectation in eq.~\eqref{equ:chap3_posterior} and its dual counterpart is the coordinates part of a \textit{biased oblique projection}. This is illustrated on a toy example in the next section but more details follow.
+      
+      \subsubsection{Explained covariance term as a null-steering operator} \label{subsubsec:chap3_null_steering_operator}
+	The following point is important, so we reproduce the primal form of the \textit{biased oblique projector}:
+	\begin{equation} \label{equ:chap3_biased_oblique_projector}
+	  \mb{W} (\mb{W}^\top \bSigma^{-1} \mb{W} + \mb{I})^{-1} \mb{W}^\top \bSigma^{-1}
+	\end{equation}
+	which is similar to eq.~\eqref{equ:app1_oblique_projection} in appendix \ref{subsec:app1_oblique_projection}, where we review the relevant properties of oblique projectors. Clearly, we are \emph{stretching} the definition of a projector here, for two reasons. The first being that --- strictly speaking --- a projector must be \emph{idempotent} (equal to its square) whereas eq.~\eqref{equ:chap3_biased_oblique_projector} is \textit{biased} (due to the additive $\mb{I}$). Additionally, by terminology introduced in the same appendix, $\bSigma^{-1}$ plays the role of a \emph{null-steering operator}, that is, an orthogonal projector that nulls everything in the subspace spanned by the fixed-covariates: any observation in $\Realspace^{p}$ is first applied with this null-steering operator that \emph{orthogonally projects} onto the \textit{orthogonal complement} of the \textit{null-space} of the oblique projector. This is the null-space that governs the \emph{directions} along which an oblique projection occurs and, 
+with $\bSigma^{-1}$ as the operator, the projecting directions are the same as the \emph{principal components} of the explained covariance $\bSigma$. This brings us to the second reason: we must stretch the biased projector's definition to encompass any positive definite $\bSigma^{-1}$ as a \textit{pseudo-null-steering operator}. At this point, it would be useful to think of the effect of multiplying with an inverse-covariance (precision). Assuming that we normalise the fixed effects and data such that the spectral norm $\norm{\bSigma^{-1}} = 1$, then the spectrum of $\bSigma^{-1}$ lies anywhere in $[0,1]$, whereas the spectrum of a conventional null-steering operator (orthogonal projector) is binary (that is, it lies in $\{0,1\}$) and only the eigenvectors of non-zero eigenvalues are intact. The added twist is that, since the magnitudes of the principal projecting directions are scaled by the \textit{principal eigenvalues} then the pseudo-null-steering operator, and ultimately the \textit{biased oblique 
+projector}, can also act anywhere in between the ends of the spectrum.
+
+      \subsubsection{Example: Dual-RCA on a toy dataset} \label{subsubsec:chap3_RCA_example_toy}
+	We demonstrate first a proof of concept with a 3D toy-dataset illustrated in Figure \ref{fig:rca_toy}.
+	We consider the case where variables $\mb{Z}$ are observed (fixed effects) or just estimated (for example, after an EM iteration) so the sample-covariance of $\mb{Y}$ is partially explained by the covariance of $\mb{Z}$ and noise.
+	The take-away message is that RCA accounts for this covariance structure in $\mb{Y}$ and gives a point estimate of the latent variables $\mb{X}$ \emph{up to rotation}, but with respect to the residual covariance in $\mb{Y}$ not explained by $\mb{Z}$ and noise.
+	Another point of this example is to visualise the end result of an actual oblique projector.
+	The reconstruction error depends on the variance $\sigma^2$ of the induced noise and the number of samples in the dataset.
+
+	\begin{figure}[!htbp]
+	  \centering
+%	  \begin{minipage}[b]{0.48\linewidth}
+%	    \subfigure[]{
+%	      \label{fig:rca_toydata}
+%	      \includegraphics[width=.95\linewidth]{rca_toydata.pdf}
+%	    }
+%	    \subfigure[]{
+%	      \label{fig:rca_mse}
+%	      \includegraphics[width=.95\linewidth]{rca_mse.pdf}
+%	    }
+%	  \end{minipage}
+%	  \subfigure[]{
+%	    \label{fig:rca_toy_recovery}
+%	    \includegraphics[width=0.48\linewidth]{rca_toy_recovery.pdf}
+%	  }
+	  \subfigure[]{
+	    \label{fig:rca_toydata}
+	    \includegraphics[width=.55\linewidth]{rca_toydata}
+	  }
+	  \subfigure[]{
+	    \label{fig:rca_toy_recovery}
+	    \includegraphics[width=0.4\linewidth]{rca_toy_recovery}
+	  }
+	  \subfigure[]{
+	    \label{fig:rca_mse}
+	    \includegraphics[width=.6\linewidth]{rca_mse}
+	  }
+	  \caption[Example of RCA on a 3D toy-dataset.] { \label{fig:rca_toy}
+	    RCA on a 3D toy-dataset of 500 samples. Random effects $\mb{X}$ (blue) are hidden and fixed effects $\mb{Z}$ (red) are given. Each set of variables lies in a two-dimensional linear manifold in the 3D space of the observed variables $\mb{Y}$ (green). Each plane is spanned by its variables' principal components (arrows).\\
+	    \textbf{\subref{fig:rca_toydata}} Observed variables $\mb{Y}$ are generated through a linear combination of effects $\mb{X}, \mb{Z}$ and iid Gaussian spherical noise.\\
+	    \textbf{\subref{fig:rca_toy_recovery}} True values of $\mb{X}$ (green) and estimates by RCA (red) for $\sigma^2=10^{-2}$. The \textit{Procrustes} algorithm is used on the estimated $\mb{X}$ for visualization purposes to find an appropriate rotation that best matches the true $\mb{X}$.\\
+	    \textbf{\subref{fig:rca_mse}} The mean square error of the recovered $\mb{X}$ as a function of the induced noise variance $\sigma^2$, for two sample sizes.
+	  }
+	\end{figure}
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \subsection{Corollary for equivalence to PCA} \label{subsec:chap3_PCA_equiv}
+    
+      In terms of objective functions, it is well known that PCA maximises the \emph{variance} of the reduced dataset when projected on the \emph{eigen-basis} of the sample-covariance matrix \citep{Jolliffe:pca02, Hastie:elements09, Bishop:book06}; whereas \textit{Canonical Correlation Analysis} (CCA) maximises the \textit{correlation} of two datasets when projected on the \emph{generalised eigenvectors} of a particular covariance structure.
+      We review CCA in section \ref{sec:chap4_reviewCCA}.
+
+      \paragraph{RCA objective function}
+      There is an easy way to solve the GEP of RCA; it involves casting it into the equivalent form of a \textit{regular eigenvalue problem} and then solving for the generalised eigenvectors.
+      It also explicitly shows the objective function of RCA through a direct connection with PCA.
+      More specifically, it follows from eq.~\eqref{equ:chap3_rcaeigenproblem_primal} that
+      \begin{align} \label{equ:chap3_RCA_to_PCA}
+	\begin{split}
+	  \tfrac{1}{n} ~ \mb{Y}^\top  \mb{Y} \mb{S} &= \left( \mb{U} \bLambda^{1/2} \right)  \left( \bLambda^{1/2} \mb{U}^\top \right) \mb{S}  \mb{D} \\
+	  \tfrac{1}{n} \left( \bLambda^{-1/2} \mb{U}^\top \right) \mb{Y}^\top  \mb{Y} \mb{S} &= \left( \bLambda^{1/2} \mb{U}^\top \mb{S} \right) \mb{D} \\
+	  \tfrac{1}{n} \left( \bLambda^{-1/2} \mb{U}^\top \mb{Y}^\top \right) \left( \mb{Y} \mb{U} \bLambda^{-1/2} \right) \widetilde{\mb{S}} &= \widetilde{\mb{S}} \mb{D} \\
+	  \tfrac{1}{n} \widetilde{\mb{Y}}^\top \widetilde{\mb{Y}} \widetilde{\mb{S}} &= \widetilde{\mb{S}} \mb{D} ~,
+	\end{split}
+      \end{align}
+      where $\widetilde{\mb{S}} \triangleq \bLambda^{1/2} \mb{U}^\top \mb{S}$ is a transformed version of the generalised eigenvectors and $\widetilde{\mb{Y}}$ are the transformed data introduced in eq.~\eqref{equ:chap3_tranformed_Y}.
+      Clearly, this is the PCA eigenvalue problem on the sample-covariance of the \emph{transformed} data.
+      \hspace*{\fill} $\square$
+
+      More generally, we have shown the corollary that:
+      \begin{enumerate}
+	\item[] \emph{Every RCA problem can be cast into an equivalent PCA problem}.
+	\rightskip2em
+      \end{enumerate}
+      We can append ``\textit{and vice versa}'' at the end of the corollary that would work only for a fixed $\mb{U}$ and $\bLambda$, otherwise a PCA problem can be cast into infinitely many RCA problems.
+      But if we stick to a particular strategy\footnote{Namely, for a fixed $\mb{U}$ and $\bLambda$ there is a bijection between the set of covariances of size $p$ and the set of pairs of covariances such that $\widetilde{\mb{Y}}^\top\widetilde{\mb{Y}} \mapsto \left(\mb{Y}^\top\mb{Y}, \mb{U} \bLambda  \mb{U}^\top\right)$ as per eq.~\eqref{equ:chap3_RCA_to_PCA}.} for inverse-transforming the data-space then we can claim that there is a bijection between the two sets of problems, thus showing that:
+      \begin{enumerate}
+	\item[] \emph{The sets of PCA and RCA problems are of the same size.}
+	\rightskip2em
+      \end{enumerate}
+      
+      %The equivalent PCA problem from eq. \eqref{equ:chap3_RCA_to_PCA} highlights the following
+      % virtue of the RCA formulation:
+      \paragraph{RCA vs simply transforming the data}
+      Tempting as it may be, we do not actually recommend solving the equivalent PCA problem from
+      eq. \eqref{equ:chap3_RCA_to_PCA}, as it obviously requires an explicit transformation of the data.
+      Note instead that RCA does not ``touch'' the data, a virtue which is highlighted especially when
+      very large matrices are involved,
+      and/or RCA is a step to some iterative scheme where preserving the sample covariance matrix
+      is crucial to the larger algorithm, for instance, see Section \ref{sec:chap4_IBFA_viaRCA} and Chapter \ref{chap5:RCAapps}.
+      
+      
+      \paragraph{Potential directions towards unification} The above statement \emph{guarantees} that any problem that can be cast as an RCA problem can also be solved via PCA. There is now potential to establish new connections and strengthen existing ones between classical models as well as their probabilistic counterparts, including Bayesian-linear extensions such as Bayesian-PCA \citep{Bishop:bayesPCA98}, Bayesian-CCA \citep{Klami:local07, Virtanen:bcca11, Wang:variational07} and similarly through the dual-RCA for kernelised (non-linear) extensions such as the GPLVM \citep{Lawrence:pnpca05}, kernel-PCA \citep{Scholkopf:kernelpca97} and kernel-ICA \citep{Bach:kica02}. Linear models can hardly be considered state-of-the-art and kernelised approaches are of special interest in the machine learning community as they allow us generalise classical linear methods to model non-linear relationships between datapoints with many practical applications in complex domains (e.g. biomedicine, economics).
+
+      \subsubsection{A geometric interpretation using oblique projectors}
+      As we mentioned in section \ref{subsec:chap3_related_work}, oblique projections play a important role in interpreting the proof of the RCA theorem and bring geometrical insight to the study of RCA solutions, to which we dedicate chapter \ref{chap4:RCAgeneralisations}. We review some mathematical properties of oblique projectors in appendix \ref{subsec:app1_oblique_projection}.
+
+      We also saw in section \ref{subsec:chap3_RCA_posterior} that the posterior expectation of RCA is strongly tied to an oblique projection as it estimates either the oblique-projected data (dual) or the projection basis (primal). The RCA theorem is novel as it introduces a probabilistic interpretation of the recovered projector subspace in the same way that PPCA enriched classical PCA for both primal and dual representations. Thereby, we distinguish the \textit{probabilistic} interpretation of RCA from its \textit{classical} origins in generalised projection methods, which are not as familiar in machine learning as they are to the signal processing community \citep{Behrens:signal94, Chen:subspace06, Hu:subspace03}.
+      
+      %       {\color{red} Oblique projections, coloured noise, probabilistic-RCA and RCA dichotomy analogue to PCA and PPCA}
+      In Figure \ref{fig:rca_toy} we can directly \textit{read-off} the geometric interpretation of the operation in RCA: the eigen-basis of the fixed variables dictates the direction at which the data are projected onto the basis that explains the maximum residual variance. From a physical viewpoint, this can be seen as an oblique projection akin to a light projector displaying onto a wall at an oblique angle. The RCA proof shows us exactly the mechanics of this operation: First, the data are transformed such that the oblique angle of the ``projector'', and scaling thereof, are undone. Then PCA on the transformed data takes care of the projection onto the final surface.
+
+      Taking this analogy one step further --- and this is where the spectral theorem really comes into play --- the properties of the positive definite $\bSigma^{-1}$ are uniquely characterised by its spectral decomposition. We saw this at the end of section \ref{subsec:chap3_RCA_posterior}, where we commented on the \textit{pseudo-null-steering operator} $\bSigma^{-1}$ not being an orthogonal projector in the strict sense, that is, not being characterised simply by its column-space (principal eigenvectors) but being enriched with more ``dials'' (principal eigenvalues), hence the naming. A real-world analogy would be closer to having a holographic rather than a 2-D projection. So depending on the frequencies of the ``light'' that we cast we can get different kinds of information from the data, as we explore in the following section.
+
+      % {\color{red} [Use a picture of a prism casting lights of different
+      % frequencies, each one representing different views of the data, say, PCA, CCA, LDA among unknown others.]}
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{Summary}
+  
+  
+    A common approach in data modeling is to explain the behavior of an observed set of covariates through a smaller \emph{latent} set.
+    This motivated the study of classical models with a low-rank covariance structure plus diagonal noise (spherical or heteroscedastic).
+    However, we are often faced with data represented by linear mixed-effects, that is, the data can be \emph{partially explained} by a set of fixed covariates and we wish to analyse the \emph{residual} components corresponding to the random effects in these data.
+    
+    This motivated us to
+    %generalise to \emph{low-rank plus positive definite} covariance structures and
+    develop the \textit{residual component analysis} (RCA) algorithm: a maximum-likelihood approach for describing a low dimensional representation of the residuals of a dataset given partial explanation by a fixed-effects covariance matrix $\bSigma$.
+    We showed how the low-rank component of the covariance in the marginal distribution can be determined through a generalized eigenvalue problem (GEP).
+
+    We analysed how the GEP of RCA (that is, with the joint sample-covariance as the matrix on the LHS) is essentially a regular eigenvalue problem on the joint sample-covariance (a PCA problem) of a linear transformation of the original data.
+    Expanding on this, we showed a deeper connection based on oblique (non-orthogonal) projections of the data, where the inverse of the explained covariance term plays the role of a \textit{null-steering operator} in the posterior expectation of the latent components.
+    
+    The following chapter is dedicated on drawing connections: we will use both variants of the RCA theorem to reduce a number of probabilistic and classical low-rank models into RCA.
+
+%    We discussed how the RCA theorem (both primal and dual representations) provides a probabilistic interpretation of generalised-projection low-rank models and as such can potentially unify many different algorithms.
+%    For instance, we saw \textit{probabilistic-PCA} and \textit{probabilistic-CCA} arise as special cases of our algorithm.
+%    The same cannot be said about LDA as the class labels or clusters are not Gaussian-distributed in general.
+%    Nonetheless, if we dispense with any probabilistic notion in RCA, its GEP still reduces to that of LDA for a special choice of $\bSigma$.
+%    At numerous points across this chapter, we have shown that with further imaginative instantiations of $\bSigma$ we can develop new approaches to data analysis.
+%    In the following chapters we begin to flesh out the applications of RCA hinted in section \ref{subsec:chap3_motivation}.
+    
+    
+% ------------------------------------------------------------------------
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
