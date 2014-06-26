@@ -1,0 +1,88 @@
+\newcommand{\PdfPsText}[2]{
+  \ifpdf
+     #1
+  \else
+     #2
+  \fi
+}
+
+\newcommand{\IncludeGraphicsH}[3]{
+  \PdfPsText{\includegraphics[height=#2]{#1}}{\includegraphics[bb = #3, height=#2]{#1}}
+}
+
+\newcommand{\IncludeGraphicsW}[3]{
+  \PdfPsText{\includegraphics[width=#2]{#1}}{\includegraphics[bb = #3, width=#2]{#1}}
+}
+
+\newcommand{\InsertFig}[3]{
+  \begin{figure}[!htbp]
+    \begin{center}
+      \leavevmode
+      #1
+      \caption{#2}
+      \label{#3}
+    \end{center}
+  \end{figure}
+}
+
+\newcommand{\mc}[3]{\multicolumn{#1}{#2}{#3}}
+\newcommand{\mr}[3]{\multirow{#1}{#2}{#3}}
+
+\newcommand{\authornames}{Alfredo Kalaitzis}
+\newcommand{\thesistitle}{Learning with structured covariance matrices in linear Gaussian models}
+
+\newcommand\Declaration[1]{
+%   \btypeout{Declaration of Authorship}
+%   \addtotoc{Declaration of Authorship}
+  \thispagestyle{plain}
+  \null\vfil
+  %\vskip 60\p@
+  \begin{center}{
+    \huge\bf Declaration of Authorship \par}
+  \end{center}
+  %\vskip 60\p@
+  {\normalsize #1}
+  \vfil\vfil\null
+  %\cleardoublepage
+}
+
+\newcommand{\mb}[1]{ \mathbf{#1} }
+
+\newcommand{\bphi}{ \boldsymbol{\phi} }
+\newcommand{\bepsilon}{ \boldsymbol{\epsilon} }
+\newcommand{\btheta}{ \boldsymbol{\theta} }
+\newcommand{\bmu}{ \boldsymbol{\mu} }
+\newcommand{\bSigma}{ \mb{\Sigma} }
+\newcommand{\bPhi}{ \mb{\Phi} }
+\newcommand{\balpha}{ \boldsymbol{\alpha} }
+\newcommand{\bLambda}{ \mb{\Lambda} }
+\newcommand{\bpi}{ \boldsymbol{\pi} }
+\newcommand{\bGamma}{ \mb{\Gamma} }
+\newcommand{\bPsi}{ \mb{\Psi} }
+\newcommand{\bpsi}{ \boldsymbol{\psi} }
+\newcommand{\bTheta}{ \mb{\Theta} }
+\newcommand{\bOmega}{ \mb{\Omega} }
+
+
+\newcommand{\Realspace}{ \mathbb{R} }
+\newcommand{\Normal}[2]{ \mathcal{N} \left( #1, #2 \right) }
+
+\newcommand{\E}[1]{ \mathbb{E}\left[#1\right] }
+\newcommand{\V}[1]{ \textrm{var}\left[#1\right] }
+\newcommand{\C}[2]{ \textrm{cov}\left[#1,#2\right] }
+\newcommand{\verts}[1]{ \lvert #1 \rvert }
+\newcommand{\tr}[1]{ \textrm{tr} \left( #1 \right) }
+\newcommand{\inner}[2]{ \langle #1,#2 \rangle }
+\newcommand{\norm}[1]{ \vert\vert #1 \vert\vert }
+\newcommand{\mat}[1]{ \begin{bmatrix} #1 \end{bmatrix} }
+\newcommand{\deriv}[1]{ \tfrac{\textrm{d}}{\textrm{d} #1} }
+\newcommand{\pderiv}[1]{ \tfrac{\partial}{\partial #1} }
+\newcommand{\expo}[1]{\textrm{exp}\left\{ #1 \right\}}
+\newcommand{\diag}[1]{\textrm{diag}\left( #1 \right)}
+\newcommand{\ceq}{\overset{c}{=}}
+\newcommand{\sm}{\setminus}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "~/Documents/LaTeX/CUEDThesisPSnPDF/thesis"
+%%% End: 
