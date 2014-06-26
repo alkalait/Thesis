@@ -1,0 +1,110 @@
+%% Nomenclature
+
+%% Matrix notation
+\nomenclature[aAcequality]{$\ceq$}{Equality up to an additive constant.}
+\nomenclature[aAdefinition]{$\triangleq$}{Equality which acts as a definition.}
+\nomenclature[aAscalVecNotation]{$a, \mb{a}, \mb{A} $}{Scalar, column vector and matrix notation.}
+\nomenclature[aAtranspose]{$\mb{a}^\top$}{Transpose of vector $\mb{a}$; row vector.}
+\nomenclature[aBindex]{$a_{i}$ or $(\mb{a})_i$}{$i$-thcd  component of vector $\mb{a}$.}
+\nomenclature[aBmatrixindex]{$A_{ij}$ or $(\mb{A})_{ij}$}{Element at row $i$ column $j$ of matrix $\mb{A}$.}
+\nomenclature[aBmatrixindexcols]{$\mb{A}^{(q)}$ or $\mb{A}_q$}{Matrix of the first $q$ columns of $\mb{A}$.}
+\nomenclature[aBnumeratedSet]{$\{a_i\}_{1..n}$}{Set of enumerated elements $a_1,a_2,...\,,a_n$.}
+\nomenclature[aCdiag]{$\diag{\mb{a}}$}{Diagonal matrix with the elements of vector $\mb{a}$ on its diagonal.}
+\nomenclature[aCIzero]{$\mb{0}, \mb{1}$}{Vector or matrix of all 0's, all 1's.} % or $\mb{0}_n, \mb{1}_n$}{Vector or matrix of all 0's, all 1's (of size n).}
+\nomenclature[aCtrace]{$\tr{\mb{A}}$}{Trace of matrix $\mb{A}$.}
+\nomenclature[aDet]{$\verts{\mb{A}}$}{Determinant of matrix $\mb{A}$.}
+\nomenclature[aDetNorm]{$\norm{\bSigma}$}{Spectral norm; largest absolute eigenvalue of symmetric matrix $\bSigma$.}
+\nomenclature[aDHadamard]{$\circ$}{Hadamard product $(\mb{A} \circ \mb{B})_{ij} = A_{ij}B_{ij}$.}
+\nomenclature[aDKron]{$\otimes$}{Kronecker product $\mb{A} \otimes \mb{B} =$ \tiny{ $\mat{ A_{11}\mb{B} &\dots &A_{1n}\mb{B} \\ \vdots &\ddots &\vdots \\ A_{m1}\mb{B} &\dots &A_{mn}\mb{B} } $}.}
+\nomenclature[aDKronSum]{$\oplus$}{Kronecker sum or Cartesian product $\mb{A} \oplus \mb{B} = \mb{A} \otimes \mb{I}_B + \mb{I}_A \otimes \mb{B}$;\\
+  or, the direct sum of two spaces $\mathcal{X} \oplus \mathcal{Y} = \{ (x,y) \,\vert\, x \in \mathcal{X}, y \in \mathcal{Y} \}$.}
+
+%% General notation
+\nomenclature[aFNatlog]{$\ln$}{Natural log.}
+\nomenclature[aFNormal]{$\Normal{\bmu}{\bSigma}$}{Gaussian distribution with mean $\bmu$ and covariance $\bSigma$.}
+\nomenclature[aGNofx]{$\mathcal{N}(\mb{x}\rvert \bmu, \mb{\Sigma}$)}{Probability density of $\mb{x}$ according to $\Normal{\bmu}{\bSigma}$.}
+\nomenclature[aGpdf]{$p(.)$}{Probability density/mass function.}
+\nomenclature[aGxdistN]{$x \sim p(.)$}{Random variable $x$ is distributed according to $p(.)$.}
+\nomenclature[aHempirical]{$\widehat{\btheta}$}{Estimate of parameter $\btheta$.}
+\nomenclature[aHE]{$\E{x}$ or $\mathbb{E}_{q(.)}[x]$}{Expectation of $x$ (with respect to distribution $q$).}
+\nomenclature[aHVariance]{$\V{\mb{x}}$}{Covariance of $\mb{x}$ (or variance if $\mb{x}$ is one-dimensional).}
+\nomenclature[aHVariance2]{$\C{\mb{x}}{\mb{x'}}$}{Covariance between $\mb{x}$ and $\mb{x}'$.}
+\nomenclature[aIkernel]{$k(.,.)$}{Covariance function or kernel.}
+\nomenclature[aInnerProduct]{$\inner{.}{.}$ or $\inner{.}{.}_\mathcal{X}$}{Inner product (defined on domain $\mathcal{X}$).}
+\nomenclature[aInorm]{$\norm{.}$ or $\norm{.}_\mathcal{X}$}{Norm (induced by the inner product on $\mathcal{X}$).}
+\nomenclature[aJempty]{$\textrm{\O}$}{Empty set.}
+\nomenclature[aJreals]{$\Realspace$}{Set of real numbers.}
+\nomenclature[aKHilbert]{$\mathcal{H}$ or $\mathcal{H}_\Realspace$}{Hilbert space (of real functions defined on $\Realspace$) with an inner product.}
+\nomenclature[aLFunction]{$f:\mathcal{X}\rightarrow\mathcal{Y}$}{Function $f$ with domain $\mathcal{X}$ and codomain $\mathcal{Y}$.}
+\nomenclature[aMUnionIntersect]{$\cup$ and $\cap$}{Set union and intersection.}
+\nomenclature[aOrthComp]{$\mathcal{S}^\perp$}{Orthogonal complement of subspace $\mathcal{S} \subset \Realspace^{p}$, such that $\mathcal{S} \cup \mathcal{S}^\perp = \Realspace^{p}$.}
+
+%% Latin symbols
+\nomenclature[bc]{$c$}{Center of an RBF; or class index.}
+\nomenclature[bD]{$\mb{D}$}{Matrix of squared differences, $D_{ij} = d(\mb{x}_i, \mb{x}_j) = (\mb{x}_i - \mb{x}_j)^\top(\mb{x}_i - \mb{x}_j)$;
+  or, the diagonal matrix of generalised eigenvalues.}
+\nomenclature[be]{$\mb{e}_i$}{The $i$-th coordinate axis (all zeros except for a 1 at position $i$).}
+\nomenclature[bf]{$\mb{f} = f(\mb{x})$}{Noiseless output vector.}
+\nomenclature[bH]{$\mb{H}$}{Centering matrix, $\mb{H} = \mb{I} - \frac{1}{\#\textrm{samples}}\mb{1}\mb{1}^\top$.}
+\nomenclature[bI]{$\mb{I}$ or $\mb{I}_n$}{Identity matrix (of size n).}
+\nomenclature[bJ]{$\mb{J}^{ij}$}{Square matrix of all zeros except for a $1$ at position $(i,j)$.}
+\nomenclature[bij]{$i,~j$}{Sample index and feature index.}
+\nomenclature[bk]{$k$}{Complexity parameter.}
+\nomenclature[bK]{$\mb{K}$}{Inner product (Gram) matrix, defined by a covariance function.}
+\nomenclature[bl]{$\ell^2$}{Lengthscale or bandwidth.}
+\nomenclature[bL]{$\mb{L}$ or $\mb{L}_q$}{Diagonal eigenvalue matrix (of the q largest eigenvalues).}
+\nomenclature[bm]{$\mb{m}$}{Sample or empirical mean vector.}
+\nomenclature[bn]{$n$}{Number of datapoints.}
+\nomenclature[bp]{$p$}{Input dimensionality or number of covariates or features.}
+\nomenclature[bq]{$q$}{Latent space dimensionality; number of latent variables.}
+\nomenclature[bR]{$\mb{R}$}{Rotation matrix.}
+\nomenclature[bS]{$\widehat{\mb{S}}$}{Sample or empirical covariance matrix.}
+\nomenclature[bU]{$\mb{U}$ or $\mb{U}_q$}{Eigenvector / singular vector matrix (q principal vectors as columns).}
+\nomenclature[bw]{$\mb{w}$ or $\mb{W}$}{Loadings of a linear mapping.}
+% \nomenclature[bx]{$\mb{x}$ or $\mb{X}$}{Input vector; matrix with one sample/row, one feature/column.}
+% \nomenclature[by]{$\mb{y}$ or $\mb{Y}$}{(Noisy) output vector; matrix with one sample/row, one output/column.}
+\nomenclature[bXY]{$\mb{X}, \mb{Y}$}{Input and output design matrices; one sample/row, one feature/column.}
+\nomenclature[bxy]{$\mb{x},~ \mb{y}$}{Input and noisy output sample vectors; a row in a design matrix.}
+\nomenclature[bxyprime]{$\mb{x}^\prime, \mb{y}^\prime$}{Input and noisy output feature vectors; a column in a design matrix.}
+
+%% Greek symbols
+\nomenclature[gAepsilon]{$\epsilon$}{Noise or error.}
+\nomenclature[gAtheta]{$\theta$}{Distribution parameter or hyperparameter.}
+\nomenclature[gBlambda]{$\lambda$ or $\lambda_i$}{Eigenvalue; $i$-th largest eigenvalue.}
+\nomenclature[gCLambda]{$\bLambda$}{Precision or inverse-covariance matrix.}
+\nomenclature[gCmu]{$\mu$}{Mean parameter.}
+\nomenclature[gCstd]{$\sigma$}{Standard deviation parameter.}
+\nomenclature[gDSigma]{$\bSigma$}{Covariance matrix.}
+\nomenclature[gDPhi]{$\phi$}{Feature map on $\Realspace^p$.}
+
+%% Acronyms
+\nomenclature[zARD]{ARD}{Automatic relevance determination.}
+\nomenclature[zAUC]{AUC}{Area under the curve.}
+\nomenclature[zBiGLasso]{BiGLasso}{Bi-graphical Lasso (see below).}
+\nomenclature[zCCA]{CCA}{Canonical correlation analysis.}
+\nomenclature[zEM]{EM}{Expectation-maximisation.}
+\nomenclature[zFA]{FA}{Factor analysis.}
+\nomenclature[zGEP]{GEP}{Generalised eigenvalue problem.}
+\nomenclature[zGLasso]{GLasso}{Graphical Lasso (see below).}
+\nomenclature[zGMRF]{GMRF}{Gaussian Markov random field.}
+\nomenclature[zGP]{GP}{Gaussian process.}
+\nomenclature[zGPLVM]{GPLVM}{Gaussian process latent variable model.}
+\nomenclature[zIBFA]{IBFA}{Inter-battery factor analysis.}
+\nomenclature[zICA]{ICA}{Independent component analysis.}
+\nomenclature[zIID]{iid}{Independently and identically distributed.}
+\nomenclature[zLasso]{Lasso}{Least absolute shrinkage and selection operator.}
+\nomenclature[zLDA]{LDA}{Linear discriminant analysis.}
+\nomenclature[zLML]{LML}{Log-marginal likelihood.}
+\nomenclature[zMSE]{MSE}{Mean square error.}
+\nomenclature[zPCA]{PCA}{Principal component analysis.}
+\nomenclature[zRBF]{RBF}{Radial basis function.}
+\nomenclature[zRCA]{RCA}{Residual component analysis.}
+\nomenclature[zRHS]{RHS}{Right hand side of an equation.}
+\nomenclature[zRKHS]{RKHS}{Reproducing kernel Hilbert space.}
+\nomenclature[zROC]{ROC}{Receiver operating characteristic.}
+\nomenclature[zSE]{SE}{Squared-exponential.}
+\nomenclature[zSNR]{SNR}{Signal-to-noise ratio.}
+\nomenclature[zSVD]{SVD}{Singular value decomposition.}
+\nomenclature[zTPR]{TPR}{True positive rate or recall.}
+
+
