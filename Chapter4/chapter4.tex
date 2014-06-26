@@ -1,0 +1,371 @@
+\chapter[Generalisations of classical and probabilistic models]{Generalisations of classical and probabilistic models} \label{chap4:RCAgeneralisations}
+\ifpdf
+    \graphicspath{{Chapter4/Chapter4Figs/PNG/}{Chapter4/Chapter4Figs/PDF/}{Chapter4/Chapter4Figs/}}
+\else
+    \graphicspath{{Chapter4/Chapter4Figs/EPS/}{Chapter4/Chapter4Figs/}}
+\fi
+
+
+  As we show in this chapter, from the viewpoint of RCA, we can recover CCA by instantiating $\bSigma$ to be block-diagonal, with each block containing the sample-covariance associated to an individual dataset, in other words, this instantiation of $\bSigma$ encodes \emph{no correlation between} the datasets but only \emph{within}.
+  Thereby, the generalised eigenvectors or \textit{residual components} $\mb{S}$ in the GEP of RCA would explain away the remaining structure that is \emph{not captured} by any of the sample-covariances individually --- that structure being in this case the cross-correlation between the data sets. Again, we note that the framework of RCA is more generally applicable; depending on the instantiation of $\bSigma$ we can explore other kinds of residual components.
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+  \section{Generalised eigenvalue problems} \label{sec:chap4_GEPs}
+    
+      %       {\color{red} Mention other GEPs maybe? ...}\\
+    On an abstract level, problems like PCA and CCA aim to optimize some vector $\mb{w}$ in a metric vector space defined by $\mb{M}$, with some \emph{restriction} on the solution norm in a vector space defined by $\mb{N}$. Problems of this general formulation lead to the maximisation of a \textit{Rayleigh quotient} \citep{Parlett:symmetric80, Horn:matrix90}:
+    \begin{equation} \label{equ:chap4_rayleigh}
+      %\widehat{\mb{w}} =
+      \underset{ \mb{w} }{ \textrm{max} } ~ R(\mb{w}) ~\equiv~
+      \underset{ \mb{w} }{ \textrm{max} } ~ \left\{ \frac{ \mb{w}^\top \mb{M}\mb{w} }{ \mb{w}^\top \mb{N}\mb{w} } \right\} ~.
+    \end{equation}
+    Setting the gradient of this quotient with respect to $\mb{w}$ to zero,
+    \begin{equation*}
+      \nabla_{\mb{w}} R(\mb{w}) = 2 \mb{M} \mb{w} - R(\mb{w}) 2 \mb{N} \mb{w} = \mb{0} ~,
+    \end{equation*}
+    yields the stationarity conditions expressed in the form of a GEP (not necessarily symmetric):
+    \[
+      \mb{M} \mb{w} = R(\mb{w}) \mb{N} \mb{w} ~,
+    \]
+    where the solution for $\mb{w}$ is obtained as the \emph{generalised eigenvector} of $\mb{M}$ and $\mb{N}$ and the quantity of interest, initially formulated as the Rayleigh quotient, is obtained as the corresponding \emph{generalised eigenvalue}.
+    In settings where $\mb{M}$ and $\mb{N}$ are symmetric (e.g. covariance structures), then the generalised eigenvalues are real and the normalised generalised eigenvectors form an orthonormal basis.
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+  \section{A review of canonical correlation analysis} \label{sec:chap4_reviewCCA}
+    
+    \textit{Canonical correlation analysis} (CCA), originally introduced by \citet{Hotelling:relations36}, follows in the same track of PCA \citep{Hotelling:analysis33} in the sense that both approaches are formulated as eigenvalue problems \citep{DeBie:eigenproblems05}.
+
+    The aim of CCA is to find weights $\mb{u}_1 \in \Realspace^{p_1}$ and $\mb{u}_2 \in \Realspace^{p_2}$ so as to maximize the Pearson product moment correlation between the linear combinations $\mb{X}\mb{u}_1$ and $\mb{Y}\mb{u}_2$, with the constraint that $ \norm{\mb{X}\mb{u}_1}^2 = \norm{\mb{Y}\mb{u}_2}^2 = 1$. A second set of solution weights can be found giving a different pair of combinations, with the added constraint that they are orthogonal to the first pair, and so on up to $\textrm{min}(p_1,p_2)$ solutions. The full set of solutions is given through the GEP: % \citep{Hotelling:relations36, Bach:kica02, DeBie:eigenproblems05},
+    \begin{equation} \label{equ:chap4_ccaeigenproblem}
+	\mat{ \mb{0} & \widehat{\mb{S}}_{12} \\ \widehat{\mb{S}}_{21} & \mb{0} } \mat{ \mb{U}_1 \\ \mb{U}_2 }
+	= \mat{ \widehat{\mb{S}}_1 &\mb{0} \\ \mb{0} &\widehat{\mb{S}}_2 } \mat{ \mb{U}_1 \\ \mb{U}_2 } \mb{P} ~,
+    \end{equation}
+    where the square block matrices contain the individual sample-covariances and cross-covariances of parts of the concatenated (joint) data
+      \[
+	\mb{Y} = \mat{ \mb{Y}_1 \\ \mb{Y}_2 } ~,
+	\quad \textrm{such that} \quad \widehat{\mb{S}}
+	= \mat{ \widehat{\mb{S}}_{1~} & \widehat{\mb{S}}_{12} \\ \widehat{\mb{S}}_{21} & \widehat{\mb{S}}_{2~} }
+	= \frac{1}{n}\mat{ \mb{Y}_1^\top \mb{Y}_1^{~} & \mb{Y}_1^\top \mb{Y}_2^{~} \\ \mb{Y}_2^\top \mb{Y}_1^{~} & \mb{Y}_2^\top \mb{Y}_2^{~} } ~.
+      \]
+      The generalised eigenvalues in the diagonal matrix $\mb{P}$ are called the \emph{canonical correlations}. The generalised eigenvectors made up of direction-pairs $\mb{U}_1$ and $\mb{U}_2$ are known as the \textit{canonical-directions} or \textit{coefficients} in the data-spaces of $\mb{Y}_1$ and $\mb{Y}_2$ respectively. So these maximise the correlation between the combinations $\mb{Y}_1\mb{U}_1$ and $\mb{Y}_2\mb{U}_2$ known as \textit{canonical variates}, such that
+      \[
+	\mb{U}_1^\top\widehat{\mb{S}}_{12}^{~}\mb{U}_2^{~} = \mb{P}
+	\quad \textrm{and} \quad
+	\mb{U}_1^\top\widehat{\mb{S}}_1^{~} \mb{U}_1^{~} = \mb{U}_2^\top \widehat{\mb{S}}_2^{~} \mb{U}_2^{~} = \mb{I} ~,
+      \]
+      where $\mb{P}$ now is a rectangular diagonal matrix with the canonical correlations on its diagonal.
+      % make up an orthogonal set in a shared-latent subspace of
+      % $\mathcal{X},\mathcal{Y}$,
+
+      \paragraph{PCCA} \citet{Bach:kica02} showed that the \textit{probabilistic-CCA} model, for centered data
+      \begin{equation} \label{equ:chap4_marginalPCCA}
+	\mat{ \mb{y}_1 \\ \mb{y}_2 }
+	% 	  \sim \Normal{ \mat{ \mb{V}_{1} \mb{z} \\ \mb{V}_{2} \mb{z} } }{ \mat{ \mb{V}_{1}^{~} \mb{V}_{1}^\top + \bSigma_1 & \mb{0} \\ \mb{0} & \mb{V}_{1}^{~} \mb{V}_{1}^\top + \bSigma_2 } } ~,
+	\sim \Normal{ \mb{0} }{ \mat{ \mb{V}_1^{~} \mb{V}_1^\top & \mb{V}_1^{~} \mb{V}_2^\top \\ \mb{V}_2^{~} \mb{V}_1^\top & \mb{V}_2^{~} \mb{V}_2^\top }
+	% + \mat{ \sigma^2\mb{I} & \mb{0} \\ \mb{0} & \sigma^2\mb{I} }
+	+ \mat{ \bSigma_1 & \mb{0} \\ \mb{0} & \bSigma_2 }
+	} ~,
+      \end{equation}
+      illustrated in Figure \ref{fig:cca}, p.~\pageref{fig:cca}, has the maximum-likelihood solution\footnote{The solution that maximises the conditional entropy of $\mb{y}|\mb{z}$.}:
+      \begin{align} \label{equ:chap4_pcca_solution}
+	\mat{ \widehat{\mb{V}}_{1} \\ \widehat{\mb{V}}_{2} } &= \mat{ \widehat{\mb{S}}_1 &\mb{0} \\
+	\mb{0} &\widehat{\mb{S}}_2 } \mat{ \mb{U}_{1q} \\ \mb{U}_{2q} } \mb{P}^{1/2}_q\mb{R} \\
+	\begin{split}
+	  \widehat{\bSigma}_1 &= \widehat{\mb{S}}_1 - \widehat{\mb{V}}_1 \widehat{\mb{V}}_1^\top \\
+	  \widehat{\bSigma}_2 &= \widehat{\mb{S}}_2 - \widehat{\mb{V}}_2 \widehat{\mb{V}}_2^\top ~,
+	\end{split}
+      \end{align}
+      where $\bSigma_1$ and $\bSigma_2$ are full noise covariance matrices, $\mb{U}_{1q}$ and $\mb{U}_{2q}$ are the first $q$ pairs of \textit{canonical directions}, $\mb{P}_q$ is the diagonal matrix of the first $q$ \textit{canonical correlations} and $\mb{R}$ is an arbitrary rotation matrix that can be set as the identity for simplicity.
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+  \section{CCA, PCA and factor analysis as RCA} \label{sec:chap4_CCAasRCA}
+    
+      \paragraph{CCA}
+      Loosely speaking, since the task of CCA is to capture only the \emph{linearly shared} structure between two sets of variables and treat all other structure as noise, then in principle we can reproduce this in RCA by canceling any structure captured \emph{within} the datasets and focus on the \textit{shared} or \textit{residual} structure, that is, on the linear mechanisms that cause the two sets of covariates to respond \textit{similarly}.
+      This RCA-like interpretation of CCA, allows us to perform tasks involving shared and private structures otherwise impossible with classical CCA; for instance, in section \ref{sec:chap5_GEdifferences} we show how to explain away with dual-RCA some estimated \emph{shared} structure between paired times-series of two experimental conditions and focus on the \emph{differential} structure; in section \ref{sec:chap4_generalisingCCA} we ``re-invent" the learning of a multi-view model in statistics known as \textit{inter-battery factor analysis} \citep[IBFA,][]{Tucker:interbattery58, Browne:maximum79} and \textit{extended-CCA} in machine learning \citep{Klami:dependencies08,Klami:generative06}.
+
+      To show how RCA can be reduced to CCA, we compare their GEPs: recall that the GEP of primal RCA is
+      \begin{equation*}
+	\tfrac{1}{n} \mb{Y^\top} \mb{Y} \mb{S} = \mb{\Sigma} \mb{S} \mb{D}
+      \end{equation*}
+      and with very little algebra eq.~\eqref{equ:chap4_ccaeigenproblem} can be re-expressed as
+      \begin{equation} \label{equ:chap4_ccaform2}
+	\mat{ \widehat{\mb{S}}_{11} &\widehat{\mb{S}}_{12} \\ \widehat{\mb{S}}_{12}^\top &\widehat{\mb{S}}_{22} }
+	\mat{ \mb{U}_1 \\ \mb{U}_2 } = \mat{ \widehat{\mb{S}}_{11} & \mb{0} \\ \mb{0} &\widehat{\mb{S}}_{22} }
+	\mat{ \mb{U}_1 \\ \mb{U}_2 } ( \mb{P} + \mb{I} ) ~.
+      \end{equation}
+      By inspection, we can clearly see the RCA-view of CCA: the canonical directions $\mb{U}$ of CCA are recovered as the \emph{generalised eigenvectors} $\mb{S}$ of RCA and the corresponding canonical correlations as the \emph{shifted generalised eigenvalues} $\mb{P} = \mb{D-I}$.
+      In other words, the instantiation
+      \begin{equation}
+	\bSigma_{CCA} = \tfrac{1}{n} \mat{ \mb{Y}_1^\top \mb{Y}_1^{~} &\mb{0} \\ \mb{0} &\mb{Y}_2^\top\mb{Y}_2^{~} }
+	= \mat{ \widehat{\mb{S}}_{11} & \mb{0} \\ \mb{0} &\widehat{\mb{S}}_{22} } ~,
+      \end{equation}
+      reduces the GEP of RCA to that of CCA. \hspace*{\fill} $\square$
+
+      Therefore, the RCA solution from eq. \eqref{equ:chap3_rca_solution} (reproduced here for convenience)
+      \[
+	\widehat{\mb{W}} = \bSigma \mb{S} (\mb{D - I})^{1/2} ~,
+      \]
+      reduces to the PCCA maximum-likelihood solution from eq.~\eqref{equ:chap4_pcca_solution} for
+      \[
+	\mb{W} = \mat{ \mb{V}_{1} \\ \mb{V}_{2} } ~, \quad
+	\bSigma = \mat{ \widehat{\mb{S}}_{11} &\mb{0} \\ \mb{0} &\widehat{\mb{S}}_{22} } ~, \quad
+	\mb{S} = \mat{ \mb{U}_{1} \\ \mb{U}_{2} } ~, \quad \mb{D} = \mb{P} + \mb{I} ~.
+      \]
+      Note that the canonical correlations in $\mb{P}$ always lie in the range $[-1,1]$, so the eigenvalues in $\mb{D}$ always lie in $[0,2]$.
+
+      %       \subsubsection{PCA as RCA} % Reducing RCA to PPCA}
+      \paragraph{PCA}
+      Similarly, we get the PCA eigenvalue problem for $\bSigma = \mb{I}$ and the PPCA maximum-likelihood solution from eq.~\eqref{equ:chap3_pca_solution} is recovered as
+      \begin{equation*}
+	\tag*{$\square$}
+	\widehat{\mb{W}} = \mb{S}_q (\mb{D}_q - \mb{I})^{1/2} = \mb{U}_q (\bLambda_q - \mb{I})^{1/2} ~.
+      \end{equation*}
+
+      From this analysis we can conclude that from the RCA viewpoint, CCA can be seen as setting $\bSigma$ as a block-diagonal covariance matrix, with each block containing the sample-covariance associated to an individual dataset, or more intuitively, a $\bSigma$ instantiation that encodes \emph{a lack of correlation} between the two datasets. Consequently, the residual components in $\mb{S}$ are forced to capture the correlation structure \emph{between} the data sets, which is the \emph{residual} structure missed by the individual sample-covariances. In the case of PCA, no structure in the covariance is explained ($\bSigma$ is the identity), therefore all of the structure remains to be captured by the \emph{principal eigenvectors} of the sample-covariance $\widehat{\mb{S}}$. The analogue equivalences for the dual representations are directly parallel to the primal representations discussed here.
+
+      \paragraph{Factor analysis}
+      Recall that the covariance structure of a \textit{factor analysis} model \citep{Bartholomew:factor11, Basilevsky:factor94} is slightly more general than that of PPCA; the marginal covariance has the form of a \textit{low-rank plus diagonal noise} structure:
+      \[
+	\mb{y} \sim \Normal{ \mb{0} }{ \mb{W}\mb{W}^\top + \diag{\balpha} } ~,
+      \]
+      where $\diag{\balpha}$ is a diagonal matrix comprised of the noise variances in $\balpha$. The \textit{heteroscedasticity} of the noise, on the one hand, makes the factor analysis model more flexible than PPCA while maintaining the convexity of the likelihood function, but on the other hand introduces interaction terms in the stationarity (zero gradient) conditions between the components of $\mb{W}$ and $\balpha$, so the maximum likelihood estimates of the parameters ($\mb{W},\balpha$) must be obtained iteratively, the simplest way being via the expectation-maximisation (EM) algorithm \citep{Rubin:EMFA82}. In practice, the noise variances $\balpha$ are not known a priori, though they can be fixed as part of the E-steps during an EM run and the solution for $\mb{W}$ conditioned on $\balpha$ has exactly the form of the RCA solution:
+      \[
+	\widehat{\mb{W}} = \bSigma_{FA} (\mb{D}_q - \mb{I})^{1/2} ~,
+      \]
+      when the explained covariance term is $\bSigma_{FA} = \diag{\balpha}$.
+
+      Casting CCA as an RCA problem is a interesting result because other generalisations and connection drawn from the CCA literature readily follow into our framework as we show in the following sections. Nonetheless, we emphasise that these are special cases and the framework of residual component analysis is more general. Later in the chapter, we see that by alternative choices for $\bSigma$ we can explore other kinds of residual components with practical applications.
+
+      % To demonstrate this we now consider two case study data sets. The first
+      % is a gene expression experiment containing treatment and control, our
+      % objective will be to explore the differences between treatment and
+      % control. The second is a data set of human pose and silhouette
+      % \citep{Agarwal:pose06}. Our objective is to predict the pose given the
+      % and we find a set of components which we can project the data on to
+      % achieve this.
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        
+  \section{LDA as RCA} \label{sec:chap4_LDAasRCA}
+    
+      \textit{Linear discriminant analysis} (LDA) or \textit{multiple discriminant analysis} is a linear dimensionality reduction approach to multi-class classification \citep{Fukunaga:book90, Duda:Hart73}. It is also known as \textit{Fisher discriminant analysis} when restricted to binary classification settings \citep{Fisher:discrim36}. Assuming the $n$ datapoints are centered and split across a total of $k$ classes $\{\mathcal{C}_c\}_{1..k}$ with $n_c \triangleq \verts{\mathcal{C}_c}$ memberships and class mean $\mb{m}_c$, then the \textit{between class} covariance is defined as
+      \[
+	\widehat{\mb{S}}_B \triangleq \frac{1}{n} \sum_{c} n_c ~ \mb{m}_c \mb{m}_c^\top = \sum_{c} \pi_c ~ \mb{m}_c \mb{m}_c^\top = \mb{M} ~\diag{\bpi} \mb{M}^\top ~,
+      \]
+      where $\mb{M} = [\mb{m}_1 \dots \mb{m}_k]$, and the \textit{within class} covariance is defined as the weighted average over all covariance-per-class matrices $\widehat{\mb{S}}_c = \frac{1}{n_c} \sum_{i \in \mathcal{C}_c} (\mb{x}_i - \mb{m}_c)(\mb{x}_i - \mb{m}_c)^\top$:
+      \[
+	\widehat{\mb{S}}_W \quad \triangleq \quad \sum_{c} \pi_c \widehat{\mb{S}}_c \quad = \quad \widehat{\mb{S}} - \widehat{\mb{S}}_B ~.
+      \]
+      The aim of LDA is to project the data on a hyperplane $\mb{u}$ residing in the data space, so as to maximise the \textit{between-class} projected covariance $\mb{u}^\top \widehat{\mb{S}}_B \mb{u}$ as a measure of class separation, such that the \textit{within-class} projected covariance $\mb{u}^\top \widehat{\mb{S}}_W \mb{u}$ is also minimised to prevent further class overlap on the projecting hyperplane. From our discussion on GEPs in beginning of this section, the above description can be naturally formalised as the maximisation of a Rayleigh quotient:
+      \begin{equation*} \label{equ:chap4_LDA_Rayleigh}
+	\widehat{\mb{u}} = \underset{ \mb{u} }{ \textrm{max} } ~ \left\{ \frac{ \mb{w}^\top \widehat{\mb{S}}_B \mb{u} }{ \mb{u}^\top \widehat{\mb{S}}_W \mb{u} } \right\} ~,
+      \end{equation*}
+      whose complete set of solutions is given by the GEP:
+      \begin{equation} \label{equ:chap4_LDA_GEP}
+	\widehat{\mb{S}}_B \mb{U} = \widehat{\mb{S}}_W \mb{U} \mb{P} ~.
+      \end{equation}
+
+      As an interesting marriage of \textit{supervised} and \textit{unsupervised learning}, it is also well known that the same LDA solution is obtained via CCA \citep{DeBie:eigenproblems05, Bach:kica02, Sun:cca11} when the centered dataset $\mb{Y}$ is coupled with the \textit{target} matrix $\mb{T}$ whose rows are the target vectors in the 1-of-$k$ encoding\footnote{ A datapoint $\mb{y}_i$ belonging in class $\mathcal{C}_3$ out of 5 classes is paired to the target vector $\mb{t}_i = (0,0,1,0,0)^\top$.}:
+      \begin{equation} \label{equ:chap4_LDA_asCCA_GEP}
+	\mat{ \mb{0} & \widehat{\mb{S}}_{\mb{Y}\mb{T}} \\ \widehat{\mb{S}}_{\mb{T}\mb{Y}} & \mb{0} } \mat{ \mb{U}_\mb{Y} \\ \mb{U}_\mb{T} }
+	= \mat{ \widehat{\mb{S}}_{\mb{Y}\mb{Y}} &\mb{0} \\ \mb{0} &\widehat{\mb{S}}_{\mb{T}\mb{T}} } \mat{ \mb{U}_\mb{Y} \\ \mb{U}_\mb{T} } \mb{P}^\prime ~,
+      \end{equation}
+      where the blocks are the covariances and cross-covariances of the two datasets, $\mb{U}_\mb{Y}$ equals $\mb{U}$ from eq.~\eqref{equ:chap4_LDA_GEP} and $\widehat{\mb{S}}_{\mb{Y}\mb{Y}} = \widehat{\mb{S}}$.
+
+      One would justifiably think that since the set of RCA problems contains the set of CCA problems, which in turn contains the set of LDA problems, then RCA subsumes LDA. Indeed, as we show RCA can be reduced directly to either solution form. In eq.~\eqref{equ:chap4_LDA_GEP} different algebraic manipulations give GEPs with different eigenvalues; more specifically, adding:
+      \begin{align}
+	\label{equ:chap4_LDA_asRCA} \widehat{\mb{S}}_W \mb{U} ~\textrm{to both sides gives} \quad \widehat{\mb{S}} \mb{U} &= \widehat{\mb{S}}_W \mb{U} ( \mb{P} + \mb{I} ) ~,\\
+	\label{equ:chap4_LDA_asRCA2} \textrm{or}~\widehat{\mb{S}}_B \mb{U} \mb{P} ~ \textrm{to both sides gives} \quad \widehat{\mb{S}} \mb{U} &= \widehat{\mb{S}}_B \mb{U} ( \mb{P}^{-1} + \mb{I} ) ~,
+      \end{align}
+      (recall that $\widehat{\mb{S}} = \widehat{\mb{S}}_B + \widehat{\mb{S}}_W$). Especially from eq.~\eqref{equ:chap4_LDA_asRCA}, now we can read the RCA interpretation of LDA, in which the explained structure is the within-class covariance and the generalised eigenvectors of RCA (typically the first $k-1$) are the required discriminants onto which the data are projected. From the CCA view in eq.~\eqref{equ:chap4_LDA_asCCA_GEP}, we repeat the same algebraic manipulation that we used for reducing any CCA problem to RCA:
+      \begin{equation*} \label{equ:chap4_LDA_asRCAfromCCA}
+	\mat{ \widehat{\mb{S}}_{\mb{Y}\mb{Y}} & \widehat{\mb{S}}_{\mb{Y}\mb{T}} \\ \widehat{\mb{S}}_{\mb{T}\mb{Y}} & \widehat{\mb{S}}_{\mb{T}\mb{T}} } \mat{ \mb{U}_\mb{Y} \\ \mb{U}_\mb{T} }
+	= \mat{ \widehat{\mb{S}}_{\mb{Y}\mb{Y}} &\mb{0} \\ \mb{0} &\widehat{\mb{S}}_{\mb{T}\mb{T}} } \mat{ \mb{U}_\mb{Y} \\ \mb{U}_\mb{T} } ( \mb{P}^\prime + \mb{I}) ~,
+      \end{equation*}
+
+    \paragraph{Potential for spectral clustering}
+    It is worth noting that the CCA view in eq.~\eqref{equ:chap4_LDA_asCCA_GEP} makes explicit use of label data in $\mb{T}$ and the discriminant directions capture the maximum correlation between the paired datasets, whereas the RCA view makes explicit use of \textit{non-class} information encoded in the within-class covariance $\widehat{\mb{S}}_W$ as a proxy to uncovering the class-related structure in the sample-covariance. Both forms give the same solution and show intuitive \textit{spectral classification} algorithms. However, eq.~\eqref{equ:chap4_LDA_asRCA2} and its dual counterpart can be potentially extended for \textit{spectral clustering} \citep{Ng:spectral02,Kannan:clusterings04, Azar:spectral01} where the between-class covariance $\widehat{\mb{S}}_B$ is unknown and optimised in a constrained fashion (e.g. as a sparse positive definite). %{\color{red} We explore this direction in chapter \ref{chap:}}. 
+
+
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        
+  \section{Revisiting some generalisations of CCA} \label{sec:chap4_generalisingCCA}
+  
+    \citet{Bach:kica02} proposed a \textit{kernelised} version of CCA for computing a \textit{contrast function} of a set of non-Gaussian random variables in the form of a non-linear correlation measure in a \textit{reproducing kernel Hilbert space} (RKHS). This contrast function is minimised as a proxy to the \textit{mutual information} of the observed variables which amounts to \textit{independent component analysis} (ICA) on non-Gaussian-distributed data. In the same paper the authors also explored relationships between CCA and mutual information and the generalisations of CCA to more than two sets of variables. Other instantiations of kernel-CCA restricted to two multivariate random variables were proposed by \citet{Lai:kernelcca00} and \citet{Akaho:kernel01}. Since CCA is a special case of RCA, it is natural to ask about fitting these developments into our framework and the potential directions they might lead to.
+
+     \subsection{RCA and mutual information}
+     
+	It is well known that the mutual information between two multivariate Gaussian random variables $y_1 \in \Realspace^{p_1}$ and $y_2 \in \Realspace^{p_2}$ with joint covariance $\mb{S} = \mat{ \mb{S}_{11} &\mb{S}_{12} \\ \mb{S}_{21} & \mb{S}_{22}}$ can be computed exactly:
+	\[
+	  M(\mb{y}_1, \mb{y}_2) = - \frac{1}{2} \log \frac{\verts{ \mb{S}} }{ \verts{\mb{S}_{11}} ~ \verts{\mb{S}_{22}} } ~,
+	\]
+	and that the fraction of determinants is equal to the product of the \emph{canonical correlations} of CCA on $\mb{y}_1$ and $\mb{y}_2$. This is because the fraction of determinants equals the determinant of the covariance-product in the eigenvalue problem (LHS):
+	\begin{align*}
+	  \mat{ \mb{S}_{11} &\mb{0} \\ \mb{0} &\mb{S}_{22} }^{-1} \mb{S} \mb{U} = \mb{U} ( \mb{P} + \mb{I}) ~,
+	\end{align*}
+	which shares the same eigenvalues with the equivalent GEP of CCA
+	\begin{align*}
+	  \mb{S} \mb{U} = \mat{ \mb{S}_{11} &\mb{0} \\ \mb{0} &\mb{S}_{22} } \mb{U} ( \mb{P} + \mb{I}) ~.
+	\end{align*}
+	Therefore $M(\mb{y}_1, \mb{y}_2) = - \frac{1}{2} \log \verts{\mb{P + \mb{I}}}$, assuming $\mb{P}$ is square with size $\textrm{min}(p_1,p_2)$.
+
+    \subsection{Towards massive-view learning through RCA}
+    
+      In fact when \citet{Bach:kica02} showed the above, they used the RCA view of CCA (to express it in term of the joint covariance matrix). However, the authors did not comment on the generality of this form (that is, beyond the significance of the block-diagonal on the RHS as the \emph{explained covariance}). \citet{Kettenring:canonical71} was the first to consider various extensions of CCA to more than two datasets. However, the one proposed by \citet[appendix A.2]{Bach:kica02}, simply by expanding the block-diagonal for more datasets,
+	\[
+	    \mat{\mb{S}_{11} &\dots &\mb{S}_{1m} \\ \vdots &\ddots &\vdots \\ \mb{S}_{m1} &\dots &\mb{S}_{mm}} \mat{ \mb{U}_1 \\ \vdots \\ \mb{U}_m } = \mat{ \mb{S}_{11} & & \\ &\ddots & \\ & &\mb{S}_{mm} } \mat{ \mb{U}_1 \\ \vdots \\ \mb{U}_m } \mb{P} ~,
+	\]
+	fits naturally into the RCA framework, as the explained covariance term cancels out any structure that jointly treats the datasets as pairwise uncorrelated. As expected, the mutual information between many multivariate Gaussian random variables generalises just as easily
+	\[
+	  M(\mb{y}_1, \dots, \mb{y}_m) = - \frac{1}{2} \log \frac{\verts{ \mb{S}} }{ \verts{\mb{S}_{11}} \dots \verts{\mb{S}_{mm}} } ~.
+	\]
+	This connection strengthens the justification for using the canonical correlations in a RKHS as a proxy for minimising the mutual information between sets of non-Gaussian random variables, which in general is a function of higher-order moments of their true distributions and not just correlation (second-order) in the primal space. Furthermore, in many applications probabilistic-CCA is used as a basis for \emph{multi-view learning} of a single latent multivariate random variable (usually with the addition of view-specific latent variables).
+	The above generalisation to \emph{many} variables through the \textit{RCA interpretation} could provide a basis for \emph{massive-view learning}, that is, scenarios where many different datasets with aligned\footnote{Meaning that the correspondence of any particular sample across the datasets is known.} samples (e.g. a gene expression microarray experiment performed in many different labs around the world, or measurements from multiple sensors scattered in region) can potentially provide deeper insight on the fundamental factors of common variation.
+	
+	Note that by diagonalising the sample-covariance of each dataset a priori (reducing the block-diagonal to a diagonal $\bSigma$, hence reducing the algorithm to PCA or FA) would be detrimental to the massive-view aspect of the algorithm. So \textit{massive-view RCA} can be seen as a \textit{factor analysis} approach on the level of data-\emph{sets} as opposed to the conventional level of data-\emph{points}, the only requirement being that the datasets have the same number of samples (for the primal representation) or the same number of features (dual).
+	%{\color{red} Is CCA on many datasets like PCA where each dataset is a variable, or dual PCA where each dataset is a datapoint. In the latter case, these datapoints can be of varying number of either features or datapoints but not both.}
+
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+  \section{An algorithm for inter-battery factor analysis} \label{sec:chap4_IBFA_viaRCA}
+    
+      \textit{Probabilistic canonical correlation analysis} (PCCA, sec.~\ref{sec:chap4_reviewCCA}) models the covariance structure of two paired datasets with a full-rank block-diagonal and low-rank off-diagonal terms, see eq.~\eqref{equ:chap4_marginalPCCA}, p.~\pageref{equ:chap4_marginalPCCA}.
+      \citet{Tucker:interbattery58} introduced \textit{inter-battery factor analysis} (IBFA) which extends classical CCA with \textit{view-specific} components (in addition to the standard components shared by both views).
+      IBFA is a more realistic model for multi-view learning as it attempts to explain data also with components exclusive to each dataset.
+      Figure \ref{fig:multiview}, p.~\pageref{fig:multiview}, shows the graphical model of IBFA.
+      In the statistics literature, \citet{Browne:maximum79} worked out a maximum-likelihood algorithm for learning IBFA.
+      In the machine learning literature, \citet{Klami:dependencies08,Klami:generative06} independently developed an EM approach to learning IBFA and a Bayesian approach to automatically learn the latent dimensionalities \citep{Klami:local07} and group components into shared and view-specific sets \citep{Virtanen:bcca11} via ARD priors.
+      \citet{Ek:ambiguity08} proposed a non-linear version of IBFA which maps the shared and private (view-specific) latent spaces to the observed space through \textit{Gaussian processes}.
+      
+      Each dataset, $\mb{Y}_d \in \Realspace^{n \times p_d}, ~d \in \{1,2\}$, associates to its own set of latent points, $\mb{X}_d \in \Realspace^{n \times q_d}$ as well as the shared latent points, $\mb{Z} \in \Realspace^{n \times q}$, that lie in the shared latent space found in classical CCA.
+      As an advantage of this structure, if the covariance specific to each dataset is low-rank then this will be recovered.
+      The data partition is represented as
+      \begin{align*}
+        \begin{split}
+        & \mb{y}_1 = \mb{W}_1 \mb{x}_1 + \mb{V}_1 \mb{z} + \bepsilon_1 \quad \textrm{with noise} \quad \bepsilon_1 \sim \Normal{ \mb{0} }{ \sigma_1 \mb{I} } \quad \textrm{and} \\
+        % 	  \mb{Y}_1 = \mb{X}_1\mb{W}_1^\top + \mb{Z}\mb{V}_1^\top + \epsilon_1, \quad \textrm{where} \quad \epsilon_1 \sim \mathcal{N}(0, \sigma_1^2)
+        & \mb{y}_2 = \mb{W}_2 \mb{x}_2 + \mb{V}_2 \mb{z} + \bepsilon_2 \quad \textrm{with noise} \quad \bepsilon_2 \sim \Normal{ \mb{0} }{ \sigma_2 \mb{I} } ~.
+        \end{split}
+      \end{align*}
+      Each set of latent variables is marginalized through an isotropic Gaussian prior to give a marginal covariance structure for the concatenated data
+      \[
+        \mb{S} = \mat{ \mb{W}_1^{}\mb{W}_1^\top & \mb{0} \\ \mb{0} & \mb{W}_2^{} \mb{W}_2^\top }
+        + \mat{ \mb{V}_1^{}\mb{V}_1^\top & \mb{V}_1^{}\mb{V}_2^\top \\ \mb{V}_2^{}\mb{V}_1^\top & \mb{V}_2^{} \mb{V}_2^\top }
+        + \mat{ \sigma^2_1 \mb{I} & \mb{0} \\ \mb{0} & \sigma^2_2 \mb{I} } ~.
+      \]
+      On the one hand, if the view-specific weights $\mb{W}_1$ and $\mb{W}_2$ are known, we can learn the shared shared-view weights, $\mb{V}^\top = [ \mb{V}_1^\top ~ \mb{V}_2^\top ]$, thought the RCA algorithm by setting the explained covariance term as
+      \[
+        \bSigma_{IBFA} = \mat{ \mb{W}_1\mb{W}_1^\top & \mb{0}\\ \mb{0} & \mb{W}_2{} \mb{W}_2^\top }
+        + \mat{ \sigma^2_1 \mb{I} & \mb{0} \\ \mb{0} & \sigma^2_2 \mb{I} } ~.
+        %  + \sigma^2 \mb{I} ~.
+      \]
+      On the other hand, to learn $\mb{W}_1$ and $\mb{W}_2$ we note that the marginal covariance of $\mb{y}_1$ is the block $~\mb{S}_{11} = \mb{W}_1 \mb{W}_1^\top + \mb{V}_1 \mb{V}_1^\top + \sigma^2_1 \mb{I}~$.
+      So if $\mb{V}_1$ is known, we can learn $\mb{W}_1$ with RCA using $\bSigma = \mb{V}_1 \mb{V}_1^\top + \sigma^2_1 \mb{I}$.
+      We follow an analogous procedure for learning $\mb{W}_2~$.
+      
+      One obvious question with IBFA is how to choose the latent dimensionalities.
+      If the noise variance $\sigma^2$ is fixed in probabilistic PCA then the latent dimension $q$ is determined automatically by choosing the maximal set of $q$ principal components $\mb{W}^{(q)}$ such that $\lambda_q > \sigma^2$, see eq.~\eqref{equ:chap3_ppca_eigenv}, p.~\pageref{equ:chap3_ppca_eigenv}.
+      This reduces the problem of choosing the \textit{intrinsic dimension} to choosing a suitable \textit{noise level}.
+      We follow a similar approach with iterative-RCA by setting the noise variances to a fraction $\alpha \in [0,1]$ of the total data variance $\tr{\mb{S}}$ and tune $\alpha$ to control the latent dimensionality.
+      The algorithm converges when the log-marginal likelihood drops less than a small constant ($10^{-6}$). Algorithm \ref{alg:iterativeRCA} lists one variant of iterative-RCA:
+      % In Iterative RCA, the number $q$ of retained principal eigenvectors is always  decided on the number of corresponding eigenvalues for which $\lambda_i > 1$. This depends on our assumptions about the noise variance, which is controlled by the parameter $\alpha$. Figure \ref{fig:rcacca} illustrates the graphical model where we apply the our algorithm.
+    
+      \begin{algorithm}
+        \caption{iterative-RCA} \label{alg:iterativeRCA}
+        \begin{algorithmic}
+          \STATE
+          \STATE Initialize $\alpha \in [0,1]; \qquad \widehat{\mb{S}} = \mat{ \widehat{\mb{S}}_{11} & \widehat{\mb{S}}_{12} \\ \widehat{\mb{S}}_{21} & \widehat{\mb{S}}_{22} } \leftarrow \frac{1}{n} \mat{ \mb{Y}_1^\top \mb{Y}_1^{} & \mb{Y}_1^\top \mb{Y}_2^{} \\ \mb{Y}_2^\top \mb{Y}_1^{} & \mb{Y}_2^\top \mb{Y}_2^{} }$
+          % \STATE $\widehat{\mb{S}} \leftarrow n^{-1}\mb{Y}^\top\mb{Y}$
+          % \STATE $\widehat{\mb{S}}_{11} \leftarrow \frac{1}{n} \mb{Y}_1^\top \mb{Y}_1^{}$
+          % \STATE $\widehat{\mb{S}}_{22} \leftarrow \frac{1}{n} \mb{Y}_2^\top \mb{Y}_2^{}$
+          % \STATE
+          % \STATE Initialize $\alpha \in [0,1]$
+          \STATE
+          \STATE $\sigma^2_1 \leftarrow \frac{\alpha}{p_1} \tr{\widehat{\mb{S}}_{11}}; \quad \sigma^2_2 \leftarrow \frac{\alpha}{p_2} \tr{\widehat{\mb{S}}_{22}}; \quad  \widehat{\mb{W}}_1 \leftarrow \widehat{\mb{V}}_1 \leftarrow \mb{0}_{p_1}; \quad \widehat{\mb{W}}_2 \leftarrow \widehat{\mb{V}}_2 \leftarrow \mb{0}_{p_2}$
+          \STATE
+          \REPEAT
+            \STATE \textbf{View-specific step:}
+            \STATE \quad Solve for \quad $\widetilde{\mb{W}}_1$ \quad in \quad $ \widehat{\mb{S}}_{11} \widetilde{\mb{W}}_1 = (\widehat{\mb{V}}_1^{} \widehat{\mb{V}}_1^\top + \sigma^2_1 \mb{I})~ \widetilde{\mb{W}}_1 \bLambda_1$
+            \STATE \quad $\widehat{\mb{W}}_1 \quad \leftarrow \quad (\widehat{\mb{V}}_1^{} \widehat{\mb{V}}_1^\top + \sigma^2_1 \mb{I})~ \widetilde{\mb{W}}_{1}^{(q_1)} (\bLambda_{1}^{(q_1)} - \mb{I})^{1/2}$
+            \STATE
+            \STATE \quad Solve for \quad $\widetilde{\mb{W}}_2$ \quad in \quad $ \widehat{\mb{S}}_{22} \widetilde{\mb{W}}_2 = (\widehat{\mb{V}}_2^{} \widehat{\mb{V}}_2^\top + \sigma^2_2 \mb{I}) \widetilde{\mb{W}}_2 \bLambda_2$
+            \STATE \quad $\widehat{\mb{W}}_2 \quad \leftarrow \quad (\widehat{\mb{V}}_2^{} \widehat{\mb{V}}_2^\top + \sigma^2_2\mb{I}) \widetilde{\mb{W}}_{2}^{(q)} ( \bLambda_{2}^{(q)} - \mb{I})^{1/2}$
+            \STATE
+            \STATE \textbf{View-shared step:}
+            \STATE \quad $\mb{\Sigma} \quad \leftarrow \quad  \mat{ \widehat{\mb{W}}_1^{} \widehat{\mb{W}}_1^\top + \sigma^2_1 \mb{I} & \mb{0} \\ \mb{0} & \widehat{\mb{W}}_2^{} \widehat{\mb{W}}_2^\top + \sigma^2_2\mb{I} }$
+            \STATE
+            \STATE \quad Solve for \quad $\widetilde{\mb{V}}$ \quad in \quad $\widehat{\mb{S}} \widetilde{\mb{V}} = \bSigma \widetilde{\mb{V}} \bLambda$
+            \STATE \quad $\widehat{\mb{V}} \quad \leftarrow \quad \bSigma \widetilde{\mb{V}}^{(q)} (\bLambda^{(q)} - \mb{I})^{1/2}$
+            % \STATE $\widehat{\mb{V}}_1 \quad \leftarrow \quad \widehat{\mb{V}}_{1:p_1,:}, \quad \mb{V}_2 \quad \leftarrow \quad \mb{V}_{(p_1+1):(p_1+p_2),:}$
+            \STATE
+          \UNTIL {the log-marginal likelihood converges.}
+        \end{algorithmic}
+      \end{algorithm}
+        
+        
+    \subsection{An example on pose recovery}      
+                  
+      We experiment on motion capture data produced by \citet{Agarwal:pose06} to demonstrate the effect of learning view-specific components through \textit{iterative-RCA}.
+        The data contain $n = 1,927$ frames of human poses (3D point clouds), each paired to a 2D silhouette.
+        Each pose is represented by 21 sensors with 3D coordinates, giving $p_1 = 63$ features, and the pose data are collected in $\mb{Y}_1 \in \Realspace^{n \times p_1}$.
+        Each silhouette is summarized by $p_2 = 100$ HoG\footnote{\citet{Dalal:histograms05}.} features and the silhouette data are collected in $\mb{Y}_2 \in \Realspace^{n \times p_2}$.
+        Because both datasets were produced in the studio, we add a small amount of iid Gaussian spherical noise to each feature to simulate conditions closer to the outside world.
+        
+        Our task is to predict the pose $\mb{y}_1$ of a silhouette $\mb{y}_2$. The posterior (predictive) mean of $p(\mb{y}_1^*|\mb{y}_2)$ is:
+        \[
+          \E{\mb{y}_1^* | \mb{y}_2} = \mb{V}_1 \mb{V}_2^\top (\mb{W}_2 \mb{W}_2^\top + \sigma^2_2)^{-1} \mb{y}_2  + \bmu_1 ~,
+        \]
+        where $\boldsymbol{\mu}_1$ is the sample mean of $\mb{Y}_2$. Posterior variances are not required for this experiment.
+        %YPred_RCA = (W2*W3'*pdinv(W4W4 + W3W3 + Nx)*XTest')'+ repmat(mean(Y,1), size(XTest,1), 1);
+        Figure \ref{fig:RCAvsPCCA} compares the prediction root mean square errors (RMSE) of iterative-RCA and probabilistic CCA while varying $\alpha$ or $q$ (one determines the other). Iterative-RCA generally outperforms PCCA, with the smallest difference being at $q = 18$ for PCCA (or $\alpha = 0.3$ for RCA). The RMSE of RCA is robust for a wide range of large $\alpha$ values. An interesting aspect of iterative-RCA is the self-regularity that the noise variance imposes on the latent dimensionality of the shared and view-specific components: For example, Figure \ref{fig:RCAretdim} shows the increase of noise with $\alpha$ causing the eigenvalues to decay faster from $\mb{z}$ and $\mb{x}_2$ than from $\mb{x}_1$. Trimming the latent dimensionality by explaining part of the variance as noise was simple enough for illustration, but more principled approaches to dimension selection can be followed (for instance, through the BIC criterion \citep{Schwarz:estimating78}).
+        \begin{figure}[!htbp]
+	  \subfigure[]{ \label{fig:RCAvsPCCA}
+	    \includegraphics[width=0.53\linewidth]{RCAvsPCCA_noise3e-2}
+	  }
+	  \subfigure[]{ \label{fig:RCAretdim}
+	    \includegraphics[width=0.42\linewidth]{RCAretdim_noise3e-2}
+	  }
+	  \vspace{0.5cm}
+	  \subfigure[]{ \label{fig:skeletons}
+	    \includegraphics[width=0.95\linewidth]{skeletonsNoColour}
+	  }
+	  \caption[The merits of accounting for view-specific components.]{ Comparison of iterative-RCA with probabilistic CCA shows the merit of accounting for view-specific components. \textbf{\subref{fig:RCAvsPCCA}} RMSE (across all test frames) of iterative-RCA and PCCA on reconstructing poses from silhouettes. The figure shows the error as a function of latent dimension $q$ for PCCA and $\alpha$ (the fraction of explained variance) for RCA. Linear regression (not visible) yields RMSE = 3.21.  \subref{fig:RCAretdim} Latent dimensions of $\mb{x}_1$, $\mb{x}_2$ and $\mb{z}$ after convergence as functions of $\alpha$. \subref{fig:skeletons} Test frame \#404 reports the largest errors in the test set. Figure shows the test silhouette and paired true pose followed by the predicted poses.}
+        \end{figure}
+
+        
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+  \section{Summary}
+    
+                                                        
+    We discussed how the RCA theorem (both primal and dual representations) provides a probabilistic interpretation of generalised-projection low-rank models and as such can potentially unify many different algorithms.
+    For instance, we saw \textit{probabilistic-PCA} and \textit{probabilistic-CCA} arise as special cases of our algorithm.
+    The same cannot be said about LDA as the class labels or cluster assignments are non-Gaussian in general,
+    unless a continuous relaxation of the labels is assumed. Alternatively, those parts of the data can be
+    ``Gaussianised'' through Gaussian copulas.
+    Nonetheless, if we dispense with any probabilistic notion in RCA, its GEP still reduces to that of LDA for a special choice of $\bSigma$.
+    At numerous points across this chapter, we have shown that with further imaginative instantiations of $\bSigma$ we can develop new approaches to data analysis.
+    
+    In the following chapter we begin to flesh out the applications of RCA hinted in section \ref{subsec:chap3_motivation}.
+    
+    The main idea will be a sum of low-rank and sparse inverse-covariance structures, with promising application in computational biology for heterogeneous data with hidden confounders.
+    To link with chapter \ref{chap2:GP}, a secondary application example will be given on analysing residuals left from a GP.
+
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../thesis"
+%%% End: 
